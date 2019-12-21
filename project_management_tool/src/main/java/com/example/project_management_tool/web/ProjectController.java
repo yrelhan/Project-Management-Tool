@@ -20,6 +20,7 @@ import java.util.Map;
 //Controller layer to pass all CRUD operations to service layer
 @RestController
 @RequestMapping("/api/project")
+@CrossOrigin
 public class ProjectController {
 
     @Autowired
