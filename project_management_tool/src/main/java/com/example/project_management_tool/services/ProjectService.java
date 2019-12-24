@@ -1,7 +1,9 @@
 package com.example.project_management_tool.services;
 
+import com.example.project_management_tool.domain.Backlog;
 import com.example.project_management_tool.domain.Project;
 import com.example.project_management_tool.exceptions.ProjectIdException;
+import com.example.project_management_tool.repositories.BacklogRepository;
 import com.example.project_management_tool.repositories.ProjectRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -14,6 +16,9 @@ public class ProjectService {
     @Autowired
     private ProjectRepository projectRepository;
 
+    @Autowired
+    private BacklogRepository backlogRepository;
+
 
     //saveOrUpdate project
     public Project saveOrUpdateProject(Project project){
@@ -21,6 +26,18 @@ public class ProjectService {
         //checking if project already exists
         try{
             project.setProjectIdentifier(project.getProjectIdentifier().toUpperCase());
+
+            if(project.getId()==null){
+                Backlog backlog = new Backlog();
+                project.setBacklog(backlog);
+                backlog.setProject(project);
+                backlog.setProjectIdentifier(project.getProjectIdentifier().toUpperCase());
+            }
+
+            if(project.getId()!=null){
+                project.setBacklog(backlogRepository.findByProjectIdentifier(project.getProjectIdentifier().toUpperCase()));
+            }
+
             return projectRepository.save(project);
         }catch (Exception e){
             throw new ProjectIdException("ProjectID " + project.getProjectIdentifier().toUpperCase() + " already exists");
