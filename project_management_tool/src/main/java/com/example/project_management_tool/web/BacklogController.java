@@ -14,7 +14,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/backlog")
-@CrossOrigin
+@CrossOrigin(origins = " * ", allowedHeaders = " * ")
 public class BacklogController {
 
     @Autowired
