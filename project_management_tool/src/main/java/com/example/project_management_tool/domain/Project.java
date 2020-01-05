@@ -47,7 +47,21 @@ public class Project {
     private Backlog backlog;
     //json ignore necessary because otherwise backlogs are also fetched if project is to be updated.
 
+    private String projectLeader;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JsonIgnore
+    private User user;
+
     public Project(){
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
     }
 
     public Long getId() {
@@ -112,6 +126,14 @@ public class Project {
 
     public void setBacklog(Backlog backlog) {
         this.backlog = backlog;
+    }
+
+    public String getProjectLeader() {
+        return projectLeader;
+    }
+
+    public void setProjectLeader(String projectLeader) {
+        this.projectLeader = projectLeader;
     }
 
     @PrePersist

@@ -2,9 +2,12 @@ package com.example.project_management_tool.services;
 
 import com.example.project_management_tool.domain.Backlog;
 import com.example.project_management_tool.domain.Project;
+import com.example.project_management_tool.domain.User;
 import com.example.project_management_tool.exceptions.ProjectIdException;
+import com.example.project_management_tool.exceptions.ProjectNotFoundException;
 import com.example.project_management_tool.repositories.BacklogRepository;
 import com.example.project_management_tool.repositories.ProjectRepository;
+import com.example.project_management_tool.repositories.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -19,12 +22,29 @@ public class ProjectService {
     @Autowired
     private BacklogRepository backlogRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
 
     //saveOrUpdate project
-    public Project saveOrUpdateProject(Project project){
+    public Project saveOrUpdateProject(Project project, String username){
+
+
+        if(project.getId() != null){
+            Project existingProject = projectRepository.findByProjectIdentifier(project.getProjectIdentifier());
+            if(existingProject !=null &&(!existingProject.getProjectLeader().equals(username))){
+                throw new ProjectNotFoundException("Project not found in your account");
+            }else if(existingProject == null){
+                throw new ProjectNotFoundException("Project with ID: '"+project.getProjectIdentifier()+"' cannot be updated because it doesn't exist");
+            }
+        }
 
         //checking if project already exists
         try{
+
+            User user = userRepository.findByUsername(username);
+            project.setUser(user);
+            project.setProjectLeader(user.getUsername());
             project.setProjectIdentifier(project.getProjectIdentifier().toUpperCase());
 
             if(project.getId()==null){
@@ -45,7 +65,7 @@ public class ProjectService {
     }
 
     //finding project by projectId
-    public Project findProjectByIdentifier(String projectId){
+    public Project findProjectByIdentifier(String projectId, String username){
 
         Project project = projectRepository.findByProjectIdentifier(projectId.toUpperCase());
 
@@ -58,19 +78,14 @@ public class ProjectService {
     }
 
     //finding all projects
-    public Iterable<Project> findAllProjects(){
-        return projectRepository.findAll();
+    public Iterable<Project> findAllProjects(String username){
+        return projectRepository.findAllByProjectLeader(username);
     }
 
     //deleting project by projectId
-    public void deleteProjectByIdentifier(String projectId){
-        Project project = projectRepository.findByProjectIdentifier(projectId.toUpperCase());
+    public void deleteProjectByIdentifier(String projectId, String username){
 
         //checking is project exists in the database
-        if(project==null){
-            throw new ProjectIdException("Cannot delete project with id " + projectId + ". This project doesn't exist");
-        }
-
-        projectRepository.delete(project);
+        projectRepository.delete(findProjectByIdentifier(projectId, username));
     }
 }
