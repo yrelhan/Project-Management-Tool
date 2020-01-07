@@ -1,7 +1,11 @@
 {
 	"folders": [
 		{
+			"name": "ppmtool-react-client",
 			"path": "ppmtool-react-client"
 		}
-	]
+	],
+	"settings": {
+		"git.ignoreLimitWarning": true
+	}
 }

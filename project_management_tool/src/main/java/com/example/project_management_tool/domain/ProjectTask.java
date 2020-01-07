@@ -1,5 +1,6 @@
 package com.example.project_management_tool.domain;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import javax.persistence.*;
@@ -24,12 +25,14 @@ public class ProjectTask {
     //ManyToOne with Backlog
     @ManyToOne(fetch =FetchType.EAGER)
     @JoinColumn(name="backlog_id",updatable = false,nullable = false)
-    @JsonIgnore
+    @JsonFormat(pattern = "yyyy-mm-dd")
     private Backlog backlog;
 
     @Column(updatable = false)
     private String projectIdentifier;
+    @JsonFormat(pattern = "yyyy-mm-dd")
     private Date create_At;
+    @JsonFormat(pattern = "yyyy-mm-dd")
     private Date update_At;
 
     public ProjectTask() {
