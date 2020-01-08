@@ -1,19 +1,24 @@
 "use strict";
-const DOMException = require("domexception");
-const { documentBaseURLSerialized, parseURLToResultingURLRecord } = require("../helpers/document-base-url.js");
+const DOMException = require("../../web-idl/DOMException.js");
+const documentBaseURLSerialized = require("../helpers/document-base-url.js").documentBaseURLSerialized;
+const parseURLToResultingURLRecord = require("../helpers/document-base-url.js").parseURLToResultingURLRecord;
+const traverseHistory = require("./navigation.js").traverseHistory;
 
-// https://html.spec.whatwg.org/#history-3
 exports.implementation = class HistoryImpl {
   constructor(args, privateData) {
     this._window = privateData.window;
     this._document = privateData.document;
     this._actAsIfLocationReloadCalled = privateData.actAsIfLocationReloadCalled;
     this._state = null;
+    this._latestEntry = null;
+
+    this._historyTraversalQueue = new Set();
   }
 
   _guardAgainstInactiveDocuments() {
     if (!this._window) {
-      throw new DOMException("History object is associated with a document that is not fully active.", "SecurityError");
+      throw new DOMException(DOMException.SECURITY_ERR,
+        "History object is associated with a document that is not fully active.");
     }
   }
 
@@ -33,12 +38,22 @@ exports.implementation = class HistoryImpl {
     this._guardAgainstInactiveDocuments();
 
     if (delta === 0) {
-      // When the go(delta) method is invoked, if delta is zero, the user agent must act as
-      // if the location.reload() method was called instead.
       this._actAsIfLocationReloadCalled();
     } else {
-      // Otherwise, the user agent must traverse the history by a delta whose value is delta
-      this._window._sessionHistory.traverseByDelta(delta);
+      this._queueHistoryTraversalTask(() => {
+        const newIndex = this._window._currentSessionHistoryEntryIndex + delta;
+        if (newIndex < 0 || newIndex >= this._window._sessionHistory.length) {
+          return;
+        }
+
+        const specifiedEntry = this._window._sessionHistory[newIndex];
+
+        // Not implemented: unload a document guard
+
+        // Not clear that this should be queued. html/browsers/history/the-history-interface/004.html can be fixed
+        // by removing the queue, but doing so breaks some tests in history.js that also pass in browsers.
+        this._queueHistoryTraversalTask(() => traverseHistory(this._window, specifiedEntry));
+      });
     }
   }
 
@@ -57,7 +72,6 @@ exports.implementation = class HistoryImpl {
     this._sharedPushAndReplaceState(data, title, url, "replaceState");
   }
 
-  // https://html.spec.whatwg.org/#dom-history-pushstate
   _sharedPushAndReplaceState(data, title, url, methodName) {
     this._guardAgainstInactiveDocuments();
 
@@ -69,9 +83,9 @@ exports.implementation = class HistoryImpl {
       // difference matters in the case of cross-frame calls.
       newURL = parseURLToResultingURLRecord(url, this._document);
 
-      if (newURL === null) {
-        throw new DOMException(`Could not parse url argument "${url}" to ${methodName} ` +
-          `against base URL "${documentBaseURLSerialized(this._document)}".`, "SecurityError");
+      if (newURL === "failure") {
+        throw new DOMException(DOMException.SECURITY_ERR, `Could not parse url argument "${url}" to ${methodName} ` +
+          `against base URL "${documentBaseURLSerialized(this._document)}".`);
       }
 
       if (newURL.scheme !== this._document._URL.scheme ||
@@ -80,44 +94,52 @@ exports.implementation = class HistoryImpl {
           newURL.host !== this._document._URL.host ||
           newURL.port !== this._document._URL.port ||
           newURL.cannotBeABaseURL !== this._document._URL.cannotBeABaseURL) {
-        throw new DOMException(`${methodName} cannot update history to a URL which ` +
-          `differs in components other than in path, query, or fragment.`, "SecurityError");
+        throw new DOMException(DOMException.SECURITY_ERR, `${methodName} cannot update history to a URL which ` +
+          `differs in components other than in path, query, or fragment.`);
       }
 
       // Not implemented: origin check (seems to only apply to documents with weird origins, e.g. sandboxed ones)
     } else {
-      newURL = this._window._sessionHistory.currentEntry.url;
+      newURL = this._window._sessionHistory[this._window._currentSessionHistoryEntryIndex].url;
     }
 
     if (methodName === "pushState") {
-      this._window._sessionHistory.removeAllEntriesAfterCurrentEntry();
+      this._window._sessionHistory.splice(this._window._currentSessionHistoryEntryIndex + 1, Infinity);
 
-      this._window._sessionHistory.clearHistoryTraversalTasks();
+      this._clearHistoryTraversalTasks();
 
-      const newEntry = {
+      this._window._sessionHistory.push({
         document: this._document,
         stateObject: data,
         title,
         url: newURL
-      };
-      this._window._sessionHistory.addEntryAfterCurrentEntry(newEntry);
-      this._window._sessionHistory.updateCurrentEntry(newEntry);
+      });
+      this._window._currentSessionHistoryEntryIndex = this._window._sessionHistory.length - 1;
     } else {
-      const { currentEntry } = this._window._sessionHistory;
+      const currentEntry = this._window._sessionHistory[this._window._currentSessionHistoryEntryIndex];
       currentEntry.stateObject = data;
       currentEntry.title = title;
       currentEntry.url = newURL;
     }
 
-    // TODO: If the current entry in the session history represents a non-GET request
-    // (e.g. it was the result of a POST submission) then update it to instead represent
-    // a GET request.
-
     this._document._URL = newURL;
-
-    // arguably it's a bit odd that the state and latestEntry do not belong to the SessionHistory
-    // but the spec gives them to "History" and "Document" respecively.
     this._state = data; // TODO clone again!! O_o
-    this._document._latestEntry = this._window._sessionHistory.currentEntry;
+    this._latestEntry = this._window._sessionHistory[this._window._currentSessionHistoryEntryIndex];
+  }
+
+  _queueHistoryTraversalTask(fn) {
+    const timeoutId = this._window.setTimeout(() => {
+      this._historyTraversalQueue.delete(timeoutId);
+      fn();
+    }, 0);
+
+    this._historyTraversalQueue.add(timeoutId);
+  }
+
+  _clearHistoryTraversalTasks() {
+    for (const timeoutId of this._historyTraversalQueue) {
+      this._window.clearTimeout(timeoutId);
+    }
+    this._historyTraversalQueue.clear();
   }
 };

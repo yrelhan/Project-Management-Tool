@@ -2,267 +2,103 @@
 
 const conversions = require("webidl-conversions");
 const utils = require("./utils.js");
-
-const convertEventInit = require("./EventInit.js").convert;
 const impl = utils.implSymbol;
+const convertEventInit = require("./EventInit").convert;
 
 function Event(type) {
-  if (new.target === undefined) {
-    throw new TypeError(
-      "Failed to construct 'Event'. Please use the 'new' operator; this constructor " +
-        "cannot be called as a function."
-    );
+  if (!this || this[impl] || !(this instanceof Event)) {
+    throw new TypeError("Failed to construct 'Event': Please use the 'new' operator, this DOM object constructor cannot be called as a function.");
   }
-
   if (arguments.length < 1) {
     throw new TypeError("Failed to construct 'Event': 1 argument required, but only " + arguments.length + " present.");
   }
   const args = [];
-  {
-    let curArg = arguments[0];
-    curArg = conversions["DOMString"](curArg, { context: "Failed to construct 'Event': parameter 1" });
-    args.push(curArg);
+  for (let i = 0; i < arguments.length && i < 2; ++i) {
+    args[i] = utils.tryImplForWrapper(arguments[i]);
   }
-  {
-    let curArg = arguments[1];
-    curArg = convertEventInit(curArg, { context: "Failed to construct 'Event': parameter 2" });
-    args.push(curArg);
-  }
+  args[0] = conversions["DOMString"](args[0]);
+  args[1] = convertEventInit(args[1]);
 
   iface.setup(this, args);
 }
 
-Object.defineProperty(Event, "prototype", {
-  value: Event.prototype,
-  writable: false,
-  enumerable: false,
-  configurable: false
-});
 
 Event.prototype.stopPropagation = function stopPropagation() {
   if (!this || !module.exports.is(this)) {
     throw new TypeError("Illegal invocation");
   }
-
-  return this[impl].stopPropagation();
+  const args = [];
+  for (let i = 0; i < arguments.length && i < 0; ++i) {
+    args[i] = utils.tryImplForWrapper(arguments[i]);
+  }
+  return this[impl].stopPropagation.apply(this[impl], args);
 };
 
 Event.prototype.stopImmediatePropagation = function stopImmediatePropagation() {
   if (!this || !module.exports.is(this)) {
     throw new TypeError("Illegal invocation");
   }
-
-  return this[impl].stopImmediatePropagation();
+  const args = [];
+  for (let i = 0; i < arguments.length && i < 0; ++i) {
+    args[i] = utils.tryImplForWrapper(arguments[i]);
+  }
+  return this[impl].stopImmediatePropagation.apply(this[impl], args);
 };
 
 Event.prototype.preventDefault = function preventDefault() {
   if (!this || !module.exports.is(this)) {
     throw new TypeError("Illegal invocation");
   }
-
-  return this[impl].preventDefault();
+  const args = [];
+  for (let i = 0; i < arguments.length && i < 0; ++i) {
+    args[i] = utils.tryImplForWrapper(arguments[i]);
+  }
+  return this[impl].preventDefault.apply(this[impl], args);
 };
 
-Event.prototype.initEvent = function initEvent(type) {
+Event.prototype.initEvent = function initEvent(type, bubbles, cancelable) {
   if (!this || !module.exports.is(this)) {
     throw new TypeError("Illegal invocation");
   }
-
-  if (arguments.length < 1) {
-    throw new TypeError(
-      "Failed to execute 'initEvent' on 'Event': 1 argument required, but only " + arguments.length + " present."
-    );
+  if (arguments.length < 3) {
+    throw new TypeError("Failed to execute 'initEvent' on 'Event': 3 arguments required, but only " + arguments.length + " present.");
   }
   const args = [];
-  {
-    let curArg = arguments[0];
-    curArg = conversions["DOMString"](curArg, { context: "Failed to execute 'initEvent' on 'Event': parameter 1" });
-    args.push(curArg);
+  for (let i = 0; i < arguments.length && i < 3; ++i) {
+    args[i] = utils.tryImplForWrapper(arguments[i]);
   }
-  {
-    let curArg = arguments[1];
-    if (curArg !== undefined) {
-      curArg = conversions["boolean"](curArg, { context: "Failed to execute 'initEvent' on 'Event': parameter 2" });
-    } else {
-      curArg = false;
-    }
-    args.push(curArg);
-  }
-  {
-    let curArg = arguments[2];
-    if (curArg !== undefined) {
-      curArg = conversions["boolean"](curArg, { context: "Failed to execute 'initEvent' on 'Event': parameter 3" });
-    } else {
-      curArg = false;
-    }
-    args.push(curArg);
-  }
-  return this[impl].initEvent(...args);
+  args[0] = conversions["DOMString"](args[0]);
+  args[1] = conversions["boolean"](args[1]);
+  args[2] = conversions["boolean"](args[2]);
+  return this[impl].initEvent.apply(this[impl], args);
 };
 
+Event.prototype.toString = function () {
+  if (this === Event.prototype) {
+    return "[object EventPrototype]";
+  }
+  return this[impl].toString();
+};
 Object.defineProperty(Event.prototype, "type", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return this[impl]["type"];
+    return this[impl].type;
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(Event.prototype, "target", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return utils.tryWrapperForImpl(this[impl]["target"]);
+    return utils.tryWrapperForImpl(this[impl].target);
   },
-
-  enumerable: true,
-  configurable: true
-});
-
-Object.defineProperty(Event.prototype, "srcElement", {
-  get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return utils.tryWrapperForImpl(this[impl]["srcElement"]);
-  },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(Event.prototype, "currentTarget", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return utils.tryWrapperForImpl(this[impl]["currentTarget"]);
+    return utils.tryWrapperForImpl(this[impl].currentTarget);
   },
-
-  enumerable: true,
-  configurable: true
-});
-
-Object.defineProperty(Event.prototype, "eventPhase", {
-  get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return this[impl]["eventPhase"];
-  },
-
-  enumerable: true,
-  configurable: true
-});
-
-Object.defineProperty(Event.prototype, "cancelBubble", {
-  get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return this[impl]["cancelBubble"];
-  },
-
-  set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = conversions["boolean"](V, {
-      context: "Failed to set the 'cancelBubble' property on 'Event': The provided value"
-    });
-
-    this[impl]["cancelBubble"] = V;
-  },
-
-  enumerable: true,
-  configurable: true
-});
-
-Object.defineProperty(Event.prototype, "bubbles", {
-  get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return this[impl]["bubbles"];
-  },
-
-  enumerable: true,
-  configurable: true
-});
-
-Object.defineProperty(Event.prototype, "cancelable", {
-  get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return this[impl]["cancelable"];
-  },
-
-  enumerable: true,
-  configurable: true
-});
-
-Object.defineProperty(Event.prototype, "returnValue", {
-  get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return this[impl]["returnValue"];
-  },
-
-  set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = conversions["boolean"](V, {
-      context: "Failed to set the 'returnValue' property on 'Event': The provided value"
-    });
-
-    this[impl]["returnValue"] = V;
-  },
-
-  enumerable: true,
-  configurable: true
-});
-
-Object.defineProperty(Event.prototype, "defaultPrevented", {
-  get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return this[impl]["defaultPrevented"];
-  },
-
-  enumerable: true,
-  configurable: true
-});
-
-Object.defineProperty(Event.prototype, "timeStamp", {
-  get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return this[impl]["timeStamp"];
-  },
-
   enumerable: true,
   configurable: true
 });
@@ -303,25 +139,68 @@ Object.defineProperty(Event.prototype, "BUBBLING_PHASE", {
   enumerable: true
 });
 
-Object.defineProperty(Event.prototype, Symbol.toStringTag, {
-  value: "Event",
-  writable: false,
-  enumerable: false,
+Object.defineProperty(Event.prototype, "eventPhase", {
+  get() {
+    return this[impl].eventPhase;
+  },
+  enumerable: true,
   configurable: true
 });
 
+Object.defineProperty(Event.prototype, "cancelBubble", {
+  get() {
+    return this[impl].cancelBubble;
+  },
+  set(V) {
+    V = conversions["boolean"](V);
+    this[impl].cancelBubble = V;
+  },
+  enumerable: true,
+  configurable: true
+});
+
+Object.defineProperty(Event.prototype, "bubbles", {
+  get() {
+    return this[impl].bubbles;
+  },
+  enumerable: true,
+  configurable: true
+});
+
+Object.defineProperty(Event.prototype, "cancelable", {
+  get() {
+    return this[impl].cancelable;
+  },
+  enumerable: true,
+  configurable: true
+});
+
+Object.defineProperty(Event.prototype, "defaultPrevented", {
+  get() {
+    return this[impl].defaultPrevented;
+  },
+  enumerable: true,
+  configurable: true
+});
+
+Object.defineProperty(Event.prototype, "timeStamp", {
+  get() {
+    return this[impl].timeStamp;
+  },
+  enumerable: true,
+  configurable: true
+});
+
+
 const iface = {
-  // When an interface-module that implements this interface as a mixin is loaded, it will append its own `.is()`
-  // method into this array. It allows objects that directly implements *those* interfaces to be recognized as
-  // implementing this mixin interface.
-  _mixedIntoPredicates: [],
+  mixedInto: [],
   is(obj) {
     if (obj) {
-      if (utils.hasOwn(obj, impl) && obj[impl] instanceof Impl.implementation) {
+      if (obj[impl] instanceof Impl.implementation) {
         return true;
       }
-      for (const isMixedInto of module.exports._mixedIntoPredicates) {
-        if (isMixedInto(obj)) {
+      for (let i = 0; i < module.exports.mixedInto.length; ++i) {
+        if (obj instanceof module.exports.mixedInto[i]) {
           return true;
         }
       }
@@ -335,71 +214,50 @@ const iface = {
       }
 
       const wrapper = utils.wrapperForImpl(obj);
-      for (const isMixedInto of module.exports._mixedIntoPredicates) {
-        if (isMixedInto(wrapper)) {
+      for (let i = 0; i < module.exports.mixedInto.length; ++i) {
+        if (wrapper instanceof module.exports.mixedInto[i]) {
           return true;
         }
       }
     }
     return false;
   },
-  convert(obj, { context = "The provided value" } = {}) {
-    if (module.exports.is(obj)) {
-      return utils.implForWrapper(obj);
-    }
-    throw new TypeError(`${context} is not of type 'Event'.`);
-  },
-
   create(constructorArgs, privateData) {
     let obj = Object.create(Event.prototype);
-    obj = this.setup(obj, constructorArgs, privateData);
+    this.setup(obj, constructorArgs, privateData);
     return obj;
   },
   createImpl(constructorArgs, privateData) {
     let obj = Object.create(Event.prototype);
-    obj = this.setup(obj, constructorArgs, privateData);
+    this.setup(obj, constructorArgs, privateData);
     return utils.implForWrapper(obj);
   },
   _internalSetup(obj) {
     Object.defineProperty(obj, "isTrusted", {
       get() {
-        if (!this || !module.exports.is(this)) {
-          throw new TypeError("Illegal invocation");
-        }
-
-        return obj[impl]["isTrusted"];
+        return obj[impl].isTrusted;
       },
-
       enumerable: true,
       configurable: false
     });
+    
+    
   },
   setup(obj, constructorArgs, privateData) {
     if (!privateData) privateData = {};
-
     privateData.wrapper = obj;
 
     this._internalSetup(obj);
-    Object.defineProperty(obj, impl, {
-      value: new Impl.implementation(constructorArgs, privateData),
-      writable: false,
-      enumerable: false,
-      configurable: true
-    });
 
+    obj[impl] = new Impl.implementation(constructorArgs, privateData);
     obj[impl][utils.wrapperSymbol] = obj;
-    if (Impl.init) {
-      Impl.init(obj[impl], privateData);
-    }
-    return obj;
   },
   interface: Event,
   expose: {
-    Window: { Event },
-    Worker: { Event },
-    AudioWorklet: { Event }
+    Window: { Event: Event },
+    Worker: { Event: Event }
   }
-}; // iface
+};
 module.exports = iface;
 
 const Impl = require("../events/Event-impl.js");

@@ -1,8 +1,6 @@
 'use strict';
 
-var doctype = require('../common/doctype'),
-    DOCUMENT_MODE = require('../common/html').DOCUMENT_MODE;
-
+var Doctype = require('../common/doctype');
 
 //Conversion tables for DOM Level1 structure emulation
 var nodeTypes = {
@@ -32,13 +30,11 @@ var Node = function (props) {
 Node.prototype = {
     get firstChild() {
         var children = this.children;
-
         return children && children[0] || null;
     },
 
     get lastChild() {
         var children = this.children;
-
         return children && children[children.length - 1] || null;
     },
 
@@ -63,18 +59,7 @@ Object.keys(nodePropertyShorthands).forEach(function (key) {
 
 
 //Node construction
-exports.createDocument = function () {
-    return new Node({
-        type: 'root',
-        name: 'root',
-        parent: null,
-        prev: null,
-        next: null,
-        children: [],
-        'x-mode': DOCUMENT_MODE.NO_QUIRKS
-    });
-};
-
+exports.createDocument =
 exports.createDocumentFragment = function () {
     return new Node({
         type: 'root',
@@ -87,9 +72,9 @@ exports.createDocumentFragment = function () {
 };
 
 exports.createElement = function (tagName, namespaceURI, attrs) {
-    var attribs = Object.create(null),
-        attribsNamespace = Object.create(null),
-        attribsPrefix = Object.create(null);
+    var attribs = {},
+        attribsNamespace = {},
+        attribsPrefix = {};
 
     for (var i = 0; i < attrs.length; i++) {
         var attrName = attrs[i].name;
@@ -135,44 +120,8 @@ var createTextNode = function (value) {
 
 
 //Tree mutation
-var appendChild = exports.appendChild = function (parentNode, newNode) {
-    var prev = parentNode.children[parentNode.children.length - 1];
-
-    if (prev) {
-        prev.next = newNode;
-        newNode.prev = prev;
-    }
-
-    parentNode.children.push(newNode);
-    newNode.parent = parentNode;
-};
-
-var insertBefore = exports.insertBefore = function (parentNode, newNode, referenceNode) {
-    var insertionIdx = parentNode.children.indexOf(referenceNode),
-        prev = referenceNode.prev;
-
-    if (prev) {
-        prev.next = newNode;
-        newNode.prev = prev;
-    }
-
-    referenceNode.prev = newNode;
-    newNode.next = referenceNode;
-
-    parentNode.children.splice(insertionIdx, 0, newNode);
-    newNode.parent = parentNode;
-};
-
-exports.setTemplateContent = function (templateElement, contentElement) {
-    appendChild(templateElement, contentElement);
-};
-
-exports.getTemplateContent = function (templateElement) {
-    return templateElement.children[0];
-};
-
 exports.setDocumentType = function (document, name, publicId, systemId) {
-    var data = doctype.serializeContent(name, publicId, systemId),
+    var data = Doctype.serializeContent(name, publicId, systemId),
         doctypeNode = null;
 
     for (var i = 0; i < document.children.length; i++) {
@@ -202,12 +151,40 @@ exports.setDocumentType = function (document, name, publicId, systemId) {
 
 };
 
-exports.setDocumentMode = function (document, mode) {
-    document['x-mode'] = mode;
+exports.setQuirksMode = function (document) {
+    document.quirksMode = true;
 };
 
-exports.getDocumentMode = function (document) {
-    return document['x-mode'];
+exports.isQuirksMode = function (document) {
+    return document.quirksMode;
+};
+
+var appendChild = exports.appendChild = function (parentNode, newNode) {
+    var prev = parentNode.children[parentNode.children.length - 1];
+
+    if (prev) {
+        prev.next = newNode;
+        newNode.prev = prev;
+    }
+
+    parentNode.children.push(newNode);
+    newNode.parent = parentNode;
+};
+
+var insertBefore = exports.insertBefore = function (parentNode, newNode, referenceNode) {
+    var insertionIdx = parentNode.children.indexOf(referenceNode),
+        prev = referenceNode.prev;
+
+    if (prev) {
+        prev.next = newNode;
+        newNode.prev = prev;
+    }
+
+    referenceNode.prev = newNode;
+    newNode.next = referenceNode;
+
+    parentNode.children.splice(insertionIdx, 0, newNode);
+    newNode.parent = parentNode;
 };
 
 exports.detachNode = function (node) {
@@ -248,14 +225,14 @@ exports.insertTextBefore = function (parentNode, text, referenceNode) {
         insertBefore(parentNode, createTextNode(text), referenceNode);
 };
 
-exports.adoptAttributes = function (recipient, attrs) {
+exports.adoptAttributes = function (recipientNode, attrs) {
     for (var i = 0; i < attrs.length; i++) {
         var attrName = attrs[i].name;
 
-        if (typeof recipient.attribs[attrName] === 'undefined') {
-            recipient.attribs[attrName] = attrs[i].value;
-            recipient['x-attribsNamespace'][attrName] = attrs[i].namespace;
-            recipient['x-attribsPrefix'][attrName] = attrs[i].prefix;
+        if (typeof recipientNode.attribs[attrName] === 'undefined') {
+            recipientNode.attribs[attrName] = attrs[i].value;
+            recipientNode['x-attribsNamespace'][attrName] = attrs[i].namespace;
+            recipientNode['x-attribsPrefix'][attrName] = attrs[i].prefix;
         }
     }
 };
@@ -274,16 +251,18 @@ exports.getParentNode = function (node) {
     return node.parent;
 };
 
-exports.getAttrList = function (element) {
+exports.getAttrList = function (node) {
     var attrList = [];
 
-    for (var name in element.attribs) {
-        attrList.push({
-            name: name,
-            value: element.attribs[name],
-            namespace: element['x-attribsNamespace'][name],
-            prefix: element['x-attribsPrefix'][name]
-        });
+    for (var name in node.attribs) {
+        if (node.attribs.hasOwnProperty(name)) {
+            attrList.push({
+                name: name,
+                value: node.attribs[name],
+                namespace: node['x-attribsNamespace'][name],
+                prefix: node['x-attribsPrefix'][name]
+            });
+        }
     }
 
     return attrList;

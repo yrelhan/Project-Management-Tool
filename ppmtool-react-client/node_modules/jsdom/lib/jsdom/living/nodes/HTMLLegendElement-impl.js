@@ -1,6 +1,7 @@
 "use strict";
+
 const HTMLElementImpl = require("./HTMLElement-impl").implementation;
-const { closest } = require("../helpers/traversal");
+const closest = require("../helpers/traversal").closest;
 
 class HTMLLegendElementImpl extends HTMLElementImpl {
   get form() {

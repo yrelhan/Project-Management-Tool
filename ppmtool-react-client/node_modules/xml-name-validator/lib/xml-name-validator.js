@@ -1,5 +1,5 @@
 "use strict";
-const parser = require("./generated-parser.js");
+var parser = require("./generated-parser.js");
 
 exports.name = function (potentialName) {
     return mapResult(parser.startWith("Name").exec(potentialName));

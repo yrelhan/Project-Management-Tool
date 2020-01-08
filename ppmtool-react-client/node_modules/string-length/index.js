@@ -1,5 +1,8 @@
 'use strict';
-const stripAnsi = require('strip-ansi');
-const astralRegex = require('astral-regex');
+var stripAnsi = require('strip-ansi');
 
-module.exports = input => stripAnsi(input).replace(astralRegex(), ' ').length;
+module.exports = function (str) {
+	var reAstral = /[\uD800-\uDBFF][\uDC00-\uDFFF]/g;
+
+	return stripAnsi(str).replace(reAstral, ' ').length;
+};

@@ -1,47 +1,43 @@
 "use strict";
 
-const { CookieJar } = require("tough-cookie");
+const CookieJar = require("tough-cookie").CookieJar;
 
 const NodeImpl = require("./Node-impl").implementation;
+const isNodeImpl = require("../generated/Node").isImpl;
 
 const NODE_TYPE = require("../node-type");
-const { mixin, memoizeQuery } = require("../../utils");
-const { firstChildWithHTMLLocalName, firstChildWithHTMLLocalNames, firstDescendantWithHTMLLocalName } =
-  require("../helpers/traversal");
+const memoizeQuery = require("../../utils").memoizeQuery;
+const firstChildWithHTMLLocalName = require("../helpers/traversal").firstChildWithHTMLLocalName;
+const firstChildWithHTMLLocalNames = require("../helpers/traversal").firstChildWithHTMLLocalNames;
+const firstDescendantWithHTMLLocalName = require("../helpers/traversal").firstDescendantWithHTMLLocalName;
 const whatwgURL = require("whatwg-url");
-const { StyleSheetList } = require("../../level2/style");
-const { domSymbolTree } = require("../helpers/internal-constants");
-const eventAccessors = require("../helpers/create-event-accessor");
-const { asciiLowercase, stripAndCollapseASCIIWhitespace } = require("../helpers/strings");
-const { HTML_NS, SVG_NS } = require("../helpers/namespaces");
-const DOMException = require("domexception");
-const HTMLToDOM = require("../../browser/htmltodom");
+const domSymbolTree = require("../helpers/internal-constants").domSymbolTree;
+const stripAndCollapseASCIIWhitespace = require("../helpers/strings").stripAndCollapseASCIIWhitespace;
+const DOMException = require("../../web-idl/DOMException");
+const HtmlToDom = require("../../browser/htmltodom").HtmlToDom;
 const History = require("../generated/History");
 const Location = require("../generated/Location");
-const HTMLCollection = require("../generated/HTMLCollection");
-const NodeList = require("../generated/NodeList");
+const createHTMLCollection = require("../html-collection").create;
+const idlUtils = require("../generated/utils");
 const validateName = require("../helpers/validate-names").name;
-const { validateAndExtract } = require("../helpers/validate-names");
+const validateAndExtract = require("../helpers/validate-names").validateAndExtract;
 const resourceLoader = require("../../browser/resource-loader");
 
-const GlobalEventHandlersImpl = require("./GlobalEventHandlers-impl").implementation;
-
-const { clone, listOfElementsWithQualifiedName, listOfElementsWithNamespaceAndLocalName,
-  listOfElementsWithClassNames } = require("../node");
+const clone = require("../node").clone;
 const generatedAttr = require("../generated/Attr");
+const listOfElementsWithQualifiedName = require("../node").listOfElementsWithQualifiedName;
+const listOfElementsWithNamespaceAndLocalName = require("../node").listOfElementsWithNamespaceAndLocalName;
+const listOfElementsWithClassNames = require("../node").listOfElementsWithClassNames;
 const Comment = require("../generated/Comment");
 const ProcessingInstruction = require("../generated/ProcessingInstruction");
 const CDATASection = require("../generated/CDATASection");
 const Text = require("../generated/Text");
 const DocumentFragment = require("../generated/DocumentFragment");
 const DOMImplementation = require("../generated/DOMImplementation");
-const NonElementParentNodeImpl = require("./NonElementParentNode-impl").implementation;
 const ParentNodeImpl = require("./ParentNode-impl").implementation;
-const Element = require("../generated/Element");
+const HTMLElement = require("../generated/HTMLElement");
 const HTMLUnknownElement = require("../generated/HTMLUnknownElement");
-const SVGElement = require("../generated/SVGElement");
 const TreeWalker = require("../generated/TreeWalker");
-const NodeIterator = require("../generated/NodeIterator");
 
 const CustomEvent = require("../generated/CustomEvent");
 const ErrorEvent = require("../generated/ErrorEvent");
@@ -59,6 +55,23 @@ const UIEvent = require("../generated/UIEvent");
 function clearChildNodes(node) {
   for (let child = domSymbolTree.firstChild(node); child; child = domSymbolTree.firstChild(node)) {
     node.removeChild(child);
+  }
+}
+
+function setInnerHTML(document, node, html) {
+  // Clear the children first:
+  if (node._templateContents) {
+    clearChildNodes(node._templateContents);
+  } else {
+    clearChildNodes(node);
+  }
+
+  if (html !== "") {
+    if (node.nodeName === "#document") {
+      document._htmlToDom.appendHtmlToDocument(html, node);
+    } else {
+      document._htmlToDom.appendHtmlToElement(html, node);
+    }
   }
 }
 
@@ -156,6 +169,12 @@ function toLastModifiedString(date) {
     ":" + pad(date.getSeconds());
 }
 
+const nonInheritedTags = new Set([
+  "article", "section", "nav", "aside", "hgroup", "header", "footer", "address", "dt",
+  "dd", "figure", "figcaption", "main", "em", "strong", "small", "s", "cite", "dfn", "abbr",
+  "ruby", "rt", "rp", "code", "var", "samp", "kbd", "i", "b", "u", "mark", "bdi", "bdo", "wbr"
+]);
+
 const eventInterfaceTable = {
   customevent: CustomEvent,
   errorevent: ErrorEvent,
@@ -180,8 +199,6 @@ class DocumentImpl extends NodeImpl {
   constructor(args, privateData) {
     super(args, privateData);
 
-    this._initGlobalEvents();
-
     this._ownerDocument = this;
     this.nodeType = NODE_TYPE.DOCUMENT_NODE;
     if (!privateData.options) {
@@ -190,17 +207,12 @@ class DocumentImpl extends NodeImpl {
     if (!privateData.options.parsingMode) {
       privateData.options.parsingMode = "xml";
     }
-    if (!privateData.options.encoding) {
-      privateData.options.encoding = "UTF-8";
-    }
-    if (!privateData.options.contentType) {
-      privateData.options.contentType = privateData.options.parsingMode === "xml" ? "application/xml" : "text/html";
-    }
 
     this._parsingMode = privateData.options.parsingMode;
-    this._htmlToDom = new HTMLToDOM(privateData.options.parsingMode);
+    this._htmlToDom = new HtmlToDom(privateData.core, privateData.options.parser, privateData.options.parsingMode);
 
     this._implementation = DOMImplementation.createImpl([], {
+      core: this._core,
       ownerDocument: this
     });
 
@@ -211,22 +223,21 @@ class DocumentImpl extends NodeImpl {
     this._attached = true;
     this._currentScript = null;
     this._cookieJar = privateData.options.cookieJar;
-    this._parseOptions = privateData.options.parseOptions;
     if (this._cookieJar === undefined) {
       this._cookieJar = new CookieJar(null, { looseMode: true });
     }
 
-    this.contentType = privateData.options.contentType;
+    this._contentType = privateData.options.contentType;
     this._encoding = privateData.options.encoding;
 
     const urlOption = privateData.options.url === undefined ? "about:blank" : privateData.options.url;
     const parsed = whatwgURL.parseURL(urlOption);
-    if (parsed === null) {
+    if (parsed === "failure") {
       throw new TypeError(`Could not parse "${urlOption}" as a URL`);
     }
 
     this._URL = parsed;
-    this.origin = whatwgURL.serializeURLOrigin(parsed);
+    this._origin = whatwgURL.serializeURLToUnicodeOrigin(parsed);
 
     this._location = Location.createImpl([], { relevantDocument: this });
     this._history = History.createImpl([], {
@@ -237,8 +248,7 @@ class DocumentImpl extends NodeImpl {
 
     if (privateData.options.cookie) {
       const cookies = Array.isArray(privateData.options.cookie) ?
-                      privateData.options.cookie :
-                      [privateData.options.cookie];
+        privateData.options.cookie : [privateData.options.cookie];
       const document = this;
 
       cookies.forEach(cookieStr => {
@@ -246,16 +256,16 @@ class DocumentImpl extends NodeImpl {
       });
     }
 
-    this._workingNodeIterators = [];
-    this._workingNodeIteratorsMax = privateData.options.concurrentNodeIterators === undefined ?
-                                    10 :
-                                    Number(privateData.options.concurrentNodeIterators);
+    this._activeNodeIterators = [];
+    this._activeNodeIteratorsMax = privateData.options.concurrentNodeIterators === undefined ?
+                                  10 :
+                                  Number(privateData.options.concurrentNodeIterators);
 
-    if (isNaN(this._workingNodeIteratorsMax)) {
+    if (isNaN(this._activeNodeIteratorsMax)) {
       throw new TypeError("The 'concurrentNodeIterators' option must be a Number");
     }
 
-    if (this._workingNodeIteratorsMax < 0) {
+    if (this._activeNodeIteratorsMax < 0) {
       throw new RangeError("The 'concurrentNodeIterators' option must be a non negative Number");
     }
 
@@ -272,12 +282,31 @@ class DocumentImpl extends NodeImpl {
 
     this._lastFocusedElement = null;
 
-    // Each Document in a browsing context can also have a latest entry. This is the entry for that Document
-    // to which the browsing context's session history was most recently traversed. When a Document is created,
-    // it initially has no latest entry.
-    this._latestEntry = null;
+    // Add level2 features
+    this.implementation._addFeature("core", "2.0");
+    this.implementation._addFeature("html", "2.0");
+    this.implementation._addFeature("xhtml", "2.0");
+    this.implementation._addFeature("xml", "2.0");
   }
 
+  _defaultElementBuilder(document, tagName) {
+    if (nonInheritedTags.has(tagName.toLowerCase())) {
+      return HTMLElement.create([], {
+        core: this._core,
+        ownerDocument: this,
+        localName: tagName
+      });
+    }
+    return HTMLUnknownElement.create([], {
+      core: this._core,
+      ownerDocument: this,
+      localName: tagName
+    });
+  }
+
+  get contentType() {
+    return this._contentType || (this._parsingMode === "xml" ? "application/xml" : "text/html");
+  }
   get compatMode() {
     return this._parsingMode === "xml" || this.doctype ? "CSS1Compat" : "BackCompat";
   }
@@ -303,6 +332,9 @@ class DocumentImpl extends NodeImpl {
   }
   get documentURI() {
     return whatwgURL.serializeURL(this._URL);
+  }
+  get origin() {
+    return this._origin;
   }
   get location() {
     return this._defaultView ? this._location : null;
@@ -349,35 +381,21 @@ class DocumentImpl extends NodeImpl {
     return Boolean(this._lastFocusedElement);
   }
 
-  _createElementWithCorrectElementInterface(localName, namespace) {
+  toString() {
+    return "[object HTMLDocument]";
+  }
+
+  _createElementWithCorrectElementInterface(name, namespace) {
     // https://dom.spec.whatwg.org/#concept-element-interface
-
-    if (this._elementBuilders[namespace] && this._elementBuilders[namespace][localName]) {
-      return this._elementBuilders[namespace][localName](this, localName, namespace);
-    } else if (namespace === HTML_NS) {
-      return HTMLUnknownElement.createImpl([], {
-        ownerDocument: this,
-        localName,
-        namespace
-      });
-    } else if (namespace === SVG_NS) {
-      return SVGElement.createImpl([], {
-        ownerDocument: this,
-        localName,
-        namespace
-      });
-    }
-
-    return Element.createImpl([], {
-      ownerDocument: this,
-      localName,
-      namespace
-    });
+    // TODO: eventually we should re-write the element-builder system to be namespace aware, but for now it is not.
+    const builder = this._elementBuilders[name.toLowerCase()] || this._defaultElementBuilder.bind(this);
+    const elem = builder(this, name, namespace);
+    return idlUtils.implForWrapper(elem);
   }
 
   appendChild(/* Node */ arg) {
     if (this.documentElement && arg.nodeType === NODE_TYPE.ELEMENT_NODE) {
-      throw new DOMException("The operation would yield an incorrect node tree.", "HierarchyRequestError");
+      throw new DOMException(DOMException.HIERARCHY_REQUEST_ERR);
     }
     return super.appendChild(arg);
   }
@@ -406,14 +424,14 @@ class DocumentImpl extends NodeImpl {
     }
 
     if (this._parsingMode === "xml") {
-      throw new DOMException("Cannot use document.write on XML documents", "InvalidStateError");
+      throw new DOMException(DOMException.INVALID_STATE_ERR, "Cannot use document.write on XML documents");
     }
 
     if (this._writeAfterElement) {
       // If called from an script element directly (during the first tick),
       // the new elements are inserted right after that element.
       const tempDiv = this.createElement("div");
-      tempDiv.innerHTML = text;
+      setInnerHTML(this, tempDiv, text);
 
       let child = tempDiv.firstChild;
       let previous = this._writeAfterElement;
@@ -422,39 +440,33 @@ class DocumentImpl extends NodeImpl {
       while (child) {
         const node = child;
         child = child.nextSibling;
-
-        node._isMovingDueToDocumentWrite = true; // hack for script execution
         parent.insertBefore(node, previous.nextSibling);
-        node._isMovingDueToDocumentWrite = false;
-
         previous = node;
       }
     } else if (this.readyState === "loading") {
       // During page loading, document.write appends to the current element
       // Find the last child that has been added to the document.
-      if (this.lastChild) {
-        let node = this;
-        while (node.lastChild && node.lastChild.nodeType === NODE_TYPE.ELEMENT_NODE) {
-          node = node.lastChild;
-        }
-        node.innerHTML = text;
-      } else {
-        clearChildNodes(this);
-        this._htmlToDom.appendToDocument(text, this);
+      let node = this;
+      while (node.lastChild && node.lastChild.nodeType === NODE_TYPE.ELEMENT_NODE) {
+        node = node.lastChild;
       }
+      setInnerHTML(this, node, text);
     } else if (text) {
-      clearChildNodes(this);
-      this._htmlToDom.appendToDocument(text, this);
+      setInnerHTML(this, this, text);
     }
   }
 
   writeln() {
-    this.write(...arguments, "\n");
+    const args = [];
+    for (let i = 0; i < arguments.length; ++i) {
+      args.push(arguments[i]);
+    }
+    args.push("\n");
+    this.write.apply(this, args);
   }
 
-  // This is implemented separately for Document (which has a _ids cache) and DocumentFragment (which does not).
   getElementById(id) {
-    // Return the first element with this ID.
+    // return the first element
     return this._ids[id] && this._ids[id].length > 0 ? this._ids[id][0] : null;
   }
 
@@ -474,14 +486,11 @@ class DocumentImpl extends NodeImpl {
     return this.embeds;
   }
   get links() {
-    return HTMLCollection.createImpl([], {
-      element: this,
-      query: () => domSymbolTree.treeToArray(this, {
-        filter: node => (node._localName === "a" || node._localName === "area") &&
-                        node.hasAttribute("href") &&
-                        node._namespaceURI === HTML_NS
-      })
-    });
+    return createHTMLCollection(this, () => domSymbolTree.treeToArray(this, { filter(node) {
+      return (node._localName === "a" || node._localName === "area") &&
+             node.hasAttribute("href") &&
+             node._namespaceURI === "http://www.w3.org/1999/xhtml";
+    } }));
   }
   get forms() {
     return this.getElementsByTagName("FORM");
@@ -490,27 +499,15 @@ class DocumentImpl extends NodeImpl {
     return this.getElementsByTagName("SCRIPT");
   }
   get anchors() {
-    return HTMLCollection.createImpl([], {
-      element: this,
-      query: () => domSymbolTree.treeToArray(this, {
-        filter: node => node._localName === "a" &&
-                        node.hasAttribute("name") &&
-                        node._namespaceURI === HTML_NS
-      })
-    });
+    return createHTMLCollection(this, () => domSymbolTree.treeToArray(this, { filter(node) {
+      return node._localName === "a" &&
+             node.hasAttribute("name") &&
+             node._namespaceURI === "http://www.w3.org/1999/xhtml";
+    } }));
   }
-
-  // The applets attribute must return an
-  // HTMLCollection rooted at the Document node,
-  // whose filter matches nothing.
-  // (It exists for historical reasons.)
   get applets() {
-    return HTMLCollection.createImpl([], {
-      element: this,
-      query: () => []
-    });
+    return this.getElementsByTagName("APPLET");
   }
-
   open() {
     let child = domSymbolTree.firstChild(this);
     while (child) {
@@ -535,12 +532,10 @@ class DocumentImpl extends NodeImpl {
   }
 
   getElementsByName(elementName) {
-    return NodeList.createImpl([], {
-      element: this,
-      query: () => domSymbolTree.treeToArray(this, {
-        filter: node => node.getAttribute && node.getAttribute("name") === elementName
-      })
-    });
+    // TODO: should be NodeList, should be memoized
+    return createHTMLCollection(this, () => domSymbolTree.treeToArray(this, { filter(node) {
+      return node.getAttribute && node.getAttribute("name") === elementName;
+    } }));
   }
 
   get title() {
@@ -573,23 +568,14 @@ class DocumentImpl extends NodeImpl {
     element.textContent = val;
   }
 
-  get dir() {
-    return this.documentElement ? this.documentElement.dir : "";
-  }
-  set dir(value) {
-    if (this.documentElement) {
-      this.documentElement.dir = value;
-    }
-  }
-
   get head() {
     return this.documentElement ? firstChildWithHTMLLocalName(this.documentElement, "head") : null;
   }
 
   get body() {
-    const { documentElement } = this;
+    const documentElement = this.documentElement;
     if (!documentElement || documentElement._localName !== "html" ||
-        documentElement._namespaceURI !== HTML_NS) {
+        documentElement._namespaceURI !== "http://www.w3.org/1999/xhtml") {
       return null;
     }
 
@@ -597,10 +583,12 @@ class DocumentImpl extends NodeImpl {
   }
 
   set body(value) {
-    if (value === null ||
-        value._namespaceURI !== HTML_NS ||
+    if (!HTMLElement.isImpl(value)) {
+      throw new TypeError("Argument must be a HTMLElement");
+    }
+    if (value._namespaceURI !== "http://www.w3.org/1999/xhtml" ||
         (value._localName !== "body" && value._localName !== "frameset")) {
-      throw new DOMException("Cannot set the body to null or a non-body/frameset element", "HierarchyRequestError");
+      throw new DOMException(DOMException.HIERARCHY_REQUEST_ERR, "Cannot set the body to a non-body/frameset element");
     }
 
     const bodyElement = this.body;
@@ -613,17 +601,19 @@ class DocumentImpl extends NodeImpl {
       return;
     }
 
-    const { documentElement } = this;
+    const documentElement = this.documentElement;
     if (documentElement === null) {
-      throw new DOMException("Cannot set the body when there is no document element", "HierarchyRequestError");
+      throw new DOMException(DOMException.HIERARCHY_REQUEST_ERR,
+        "Cannot set the body when there is no document element");
     }
 
     documentElement.appendChild(value);
   }
 
-  _runPreRemovingSteps(oldNode) {
-    for (const activeNodeIterator of this._workingNodeIterators) {
-      activeNodeIterator._preRemovingSteps(oldNode);
+  _runRemovingSteps(oldNode, oldParent, oldPreviousSibling) {
+    const listeners = DocumentImpl._removingSteps;
+    for (let i = 0; i < listeners.length; ++i) {
+      listeners[i](this, oldNode, oldParent, oldPreviousSibling);
     }
   }
 
@@ -632,7 +622,8 @@ class DocumentImpl extends NodeImpl {
     const eventWrapper = eventInterfaceTable[typeLower] || null;
 
     if (!eventWrapper) {
-      throw new DOMException("The provided event type (\"" + type + "\") is invalid", "NotSupportedError");
+      throw new DOMException(DOMException.NOT_SUPPORTED_ERR,
+        "The provided event type (\"" + type + "\") is invalid");
     }
 
     const impl = eventWrapper.createImpl([""]);
@@ -643,11 +634,13 @@ class DocumentImpl extends NodeImpl {
   createProcessingInstruction(target, data) {
     validateName(target);
 
-    if (data.includes("?>")) {
-      throw new DOMException("Processing instruction data cannot contain the string \"?>\"", "InvalidCharacterError");
+    if (data.indexOf("?>") !== -1) {
+      throw new DOMException(DOMException.INVALID_CHARACTER_ERR,
+        "Processing instruction data cannot contain the string \"?>\"");
     }
 
     return ProcessingInstruction.createImpl([], {
+      core: this._core,
       ownerDocument: this,
       target,
       data
@@ -657,14 +650,17 @@ class DocumentImpl extends NodeImpl {
   // https://dom.spec.whatwg.org/#dom-document-createcdatasection
   createCDATASection(data) {
     if (this._parsingMode === "html") {
-      throw new DOMException("Cannot create CDATA sections in HTML documents", "NotSupportedError");
+      throw new DOMException(DOMException.NOT_SUPPORTED_ERR,
+        "Cannot create CDATA sections in HTML documents");
     }
 
-    if (data.includes("]]>")) {
-      throw new DOMException("CDATA section data cannot contain the string \"]]>\"", "InvalidCharacterError");
+    if (data.indexOf("]]>") !== -1) {
+      throw new DOMException(DOMException.INVALID_CHARACTER_ERR,
+        "CDATA section data cannot contain the string \"]]>\"");
     }
 
     return CDATASection.createImpl([], {
+      core: this._core,
       ownerDocument: this,
       data
     });
@@ -672,6 +668,7 @@ class DocumentImpl extends NodeImpl {
 
   createTextNode(data) {
     return Text.createImpl([], {
+      core: this._core,
       ownerDocument: this,
       data
     });
@@ -679,6 +676,7 @@ class DocumentImpl extends NodeImpl {
 
   createComment(data) {
     return Comment.createImpl([], {
+      core: this._core,
       ownerDocument: this,
       data
     });
@@ -687,12 +685,14 @@ class DocumentImpl extends NodeImpl {
   createElement(localName) {
     validateName(localName);
     if (this._parsingMode === "html") {
-      localName = asciiLowercase(localName);
+      localName = localName.toLowerCase();
     }
 
-    const namespace = this._parsingMode === "html" || this.contentType === "application/xhtml+xml" ? HTML_NS : null;
+    const element = this._createElementWithCorrectElementInterface(localName, "http://www.w3.org/1999/xhtml");
+    element._namespaceURI = "http://www.w3.org/1999/xhtml";
+    element._localName = localName;
 
-    return this._createElementWithCorrectElementInterface(localName, namespace);
+    return element;
   }
 
   createElementNS(namespace, qualifiedName) {
@@ -701,7 +701,9 @@ class DocumentImpl extends NodeImpl {
     const extracted = validateAndExtract(namespace, qualifiedName);
 
     const element = this._createElementWithCorrectElementInterface(extracted.localName, extracted.namespace);
+    element._namespaceURI = extracted.namespace;
     element._prefix = extracted.prefix;
+    element._localName = extracted.localName;
 
     return element;
   }
@@ -714,7 +716,7 @@ class DocumentImpl extends NodeImpl {
     validateName(localName);
 
     if (this._parsingMode === "html") {
-      localName = asciiLowercase(localName);
+      localName = localName.toLowerCase();
     }
 
     return generatedAttr.createImpl([], { localName });
@@ -736,32 +738,36 @@ class DocumentImpl extends NodeImpl {
 
   // TODO: Add callback interface support to `webidl2js`
   createTreeWalker(root, whatToShow, filter) {
-    return TreeWalker.createImpl([], { root, whatToShow, filter });
-  }
-
-  createNodeIterator(root, whatToShow, filter) {
-    const nodeIterator = NodeIterator.createImpl([], { root, whatToShow, filter });
-
-    this._workingNodeIterators.push(nodeIterator);
-    while (this._workingNodeIterators.length > this._workingNodeIteratorsMax) {
-      const toInactivate = this._workingNodeIterators.shift();
-      toInactivate._working = false;
+    if (!isNodeImpl(root)) {
+      throw new TypeError("First argument to createTreeWalker must be a Node");
     }
 
-    return nodeIterator;
+    return TreeWalker.createImpl([], {
+      root,
+      whatToShow,
+      filter
+    });
   }
 
   importNode(node, deep) {
+    if (!isNodeImpl(node)) {
+      throw new TypeError("First argument to importNode must be a Node");
+    }
+    deep = Boolean(deep);
+
     if (node.nodeType === NODE_TYPE.DOCUMENT_NODE) {
-      throw new DOMException("Cannot import a document node", "NotSupportedError");
+      throw new DOMException(DOMException.NOT_SUPPORTED_ERR, "Cannot import a document node");
     }
 
-    return clone(node, this, deep);
+    return clone(this._core, node, this, deep);
   }
 
   adoptNode(node) {
+    if (!isNodeImpl(node)) {
+      throw new TypeError("First argument to adoptNode must be a Node");
+    }
     if (node.nodeType === NODE_TYPE.DOCUMENT_NODE) {
-      throw new DOMException("Cannot adopt a document node", "NotSupportedError");
+      throw new DOMException(DOMException.NOT_SUPPORTED_ERR, "Cannot adopt a document node");
     }
     // TODO: Determine correct way to detect a shadow root
     // See also https://github.com/w3c/webcomponents/issues/182
@@ -788,16 +794,9 @@ class DocumentImpl extends NodeImpl {
     });
   }
 
-  // The clear(), captureEvents(), and releaseEvents() methods must do nothing
-  clear() {}
-
-  captureEvents() {}
-
-  releaseEvents() {}
-
   get styleSheets() {
     if (!this._styleSheets) {
-      this._styleSheets = new StyleSheetList();
+      this._styleSheets = new this._core.StyleSheetList();
     }
 
     // TODO: each style and link element should register its sheet on creation
@@ -806,26 +805,17 @@ class DocumentImpl extends NodeImpl {
   }
 
   get hidden() {
-    if (this._defaultView && this._defaultView._pretendToBeVisual) {
-      return false;
-    }
-
     return true;
   }
 
   get visibilityState() {
-    if (this._defaultView && this._defaultView._pretendToBeVisual) {
-      return "visible";
-    }
-
     return "prerender";
   }
 }
 
-eventAccessors.createEventAccessor(DocumentImpl.prototype, "readystatechange");
-mixin(DocumentImpl.prototype, GlobalEventHandlersImpl.prototype);
-mixin(DocumentImpl.prototype, NonElementParentNodeImpl.prototype);
-mixin(DocumentImpl.prototype, ParentNodeImpl.prototype);
+idlUtils.mixin(DocumentImpl.prototype, ParentNodeImpl.prototype);
+
+DocumentImpl._removingSteps = [];
 
 DocumentImpl.prototype._elementBuilders = Object.create(null);
 

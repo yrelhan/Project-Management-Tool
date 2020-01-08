@@ -1,6 +1,7 @@
 "use strict";
+
 const HTMLElementImpl = require("./HTMLElement-impl").implementation;
-const { reflectURLAttribute } = require("../../utils");
+const reflectURLAttribute = require("../../utils").reflectURLAttribute;
 
 class HTMLEmbedElementImpl extends HTMLElementImpl {
   get src() {

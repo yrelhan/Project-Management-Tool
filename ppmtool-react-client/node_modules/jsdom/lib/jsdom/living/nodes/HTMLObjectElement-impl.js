@@ -1,10 +1,8 @@
 "use strict";
+
 const HTMLElementImpl = require("./HTMLElement-impl").implementation;
-const DefaultConstraintValidationImpl =
-  require("../constraint-validation/DefaultConstraintValidation-impl").implementation;
-const { mixin } = require("../../utils");
-const { reflectURLAttribute } = require("../../utils");
-const { closest } = require("../helpers/traversal");
+const reflectURLAttribute = require("../../utils").reflectURLAttribute;
+const closest = require("../helpers/traversal").closest;
 
 class HTMLObjectElementImpl extends HTMLElementImpl {
   get form() {
@@ -30,13 +28,7 @@ class HTMLObjectElementImpl extends HTMLElementImpl {
   set codeBase(V) {
     this.setAttribute("codebase", V);
   }
-
-  _barredFromConstraintValidationSpecialization() {
-    return true;
-  }
 }
-
-mixin(HTMLObjectElementImpl.prototype, DefaultConstraintValidationImpl.prototype);
 
 module.exports = {
   implementation: HTMLObjectElementImpl

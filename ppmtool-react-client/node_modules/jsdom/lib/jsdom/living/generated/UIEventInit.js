@@ -3,59 +3,40 @@
 const conversions = require("webidl-conversions");
 const utils = require("./utils.js");
 
-const EventInit = require("./EventInit.js");
+const EventInit = require("./EventInit");
 
 module.exports = {
-  convertInherit(obj, ret, { context = "The provided value" } = {}) {
-    EventInit.convertInherit(obj, ret, { context });
+  convertInherit(obj, ret) {
+    EventInit.convertInherit(obj, ret);
+    let key, value;
 
-    {
-      const key = "detail";
-      let value = obj === undefined || obj === null ? undefined : obj[key];
-      if (value !== undefined) {
-        value = conversions["long"](value, { context: context + " has member detail that" });
-
-        ret[key] = value;
-      } else {
-        ret[key] = 0;
-      }
+    key = "detail";
+    value = obj === undefined || obj === null ? undefined : obj[key];
+    if (value !== undefined) {
+      ret[key] = conversions["long"](value);
+    } else {
+      ret[key] = 0;
     }
 
-    {
-      const key = "view";
-      let value = obj === undefined || obj === null ? undefined : obj[key];
-      if (value !== undefined) {
-        if (value === null || value === undefined) {
-          value = null;
-        } else {
-          value = utils.tryImplForWrapper(value);
-        }
-        ret[key] = value;
-      } else {
-        ret[key] = null;
-      }
-    }
-
-    {
-      const key = "which";
-      let value = obj === undefined || obj === null ? undefined : obj[key];
-      if (value !== undefined) {
-        value = conversions["unsigned long"](value, { context: context + " has member which that" });
-
-        ret[key] = value;
-      } else {
-        ret[key] = 0;
-      }
+    key = "view";
+    value = obj === undefined || obj === null ? undefined : obj[key];
+    if (value !== undefined) {
+      ret[key] = (value);
+    } else {
+      ret[key] = null;
     }
   },
 
-  convert(obj, { context = "The provided value" } = {}) {
-    if (obj !== undefined && typeof obj !== "object" && typeof obj !== "function") {
-      throw new TypeError(`${context} is not an object.`);
+  convert(obj) {
+    if (obj !== undefined && typeof obj !== "object") {
+      throw new TypeError("Dictionary has to be an object");
+    }
+    if (obj instanceof Date || obj instanceof RegExp) {
+      throw new TypeError("Dictionary may not be a Date or RegExp object");
     }
 
     const ret = Object.create(null);
-    module.exports.convertInherit(obj, ret, { context });
+    module.exports.convertInherit(obj, ret);
     return ret;
   }
 };

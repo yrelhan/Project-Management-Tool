@@ -2,19 +2,8 @@
 const cssom = require("cssom");
 const cssstyle = require("cssstyle");
 
-// http://dev.w3.org/csswg/cssom/#stylesheetlist
-// TODO: implement using webidl2js
-function StyleSheetList() {}
+module.exports = core => {
 
-Object.setPrototypeOf(StyleSheetList.prototype, Array.prototype);
-
-StyleSheetList.prototype.item = function item(i) {
-  return Object.prototype.hasOwnProperty.call(this, i) ? this[i] : null;
-};
-
-exports.StyleSheetList = StyleSheetList;
-
-exports.addToCore = core => {
   // What works now:
   // - Accessing the rules defined in individual stylesheets
   // - Modifications to style content attribute are reflected in style property
@@ -40,7 +29,6 @@ exports.addToCore = core => {
   core.CSSMediaRule = cssom.CSSMediaRule;
   core.CSSImportRule = cssom.CSSImportRule;
   core.CSSStyleDeclaration = cssstyle.CSSStyleDeclaration;
-  core.StyleSheetList = StyleSheetList;
 
   // Relavant specs
   // http://www.w3.org/TR/DOM-Level-2-Style (2000)
@@ -67,4 +55,15 @@ exports.addToCore = core => {
   //   RGBColor
   //   Rect
   //   Counter
+
+  // http://dev.w3.org/csswg/cssom/#stylesheetlist
+  function StyleSheetList() {}
+
+  StyleSheetList.prototype.__proto__ = Array.prototype;
+
+  StyleSheetList.prototype.item = function item(i) {
+    return Object.prototype.hasOwnProperty.call(this, i) ? this[i] : null;
+  };
+
+  core.StyleSheetList = StyleSheetList;
 };

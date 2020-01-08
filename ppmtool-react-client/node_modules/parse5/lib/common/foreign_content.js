@@ -1,6 +1,6 @@
 'use strict';
 
-var Tokenizer = require('../tokenizer'),
+var Tokenizer = require('../tokenization/tokenizer'),
     HTML = require('./html');
 
 //Aliases
@@ -25,8 +25,12 @@ var DEFINITION_URL_ATTR = 'definitionurl',
         'baseprofile': 'baseProfile',
         'calcmode': 'calcMode',
         'clippathunits': 'clipPathUnits',
+        'contentscripttype': 'contentScriptType',
+        'contentstyletype': 'contentStyleType',
         'diffuseconstant': 'diffuseConstant',
         'edgemode': 'edgeMode',
+        'externalresourcesrequired': 'externalResourcesRequired',
+        'filterres': 'filterRes',
         'filterunits': 'filterUnits',
         'glyphref': 'glyphRef',
         'gradienttransform': 'gradientTransform',
@@ -95,7 +99,7 @@ var DEFINITION_URL_ATTR = 'definitionurl',
     };
 
 //SVG tag names adjustment map
-var SVG_TAG_NAMES_ADJUSTMENT_MAP = exports.SVG_TAG_NAMES_ADJUSTMENT_MAP = {
+var SVG_TAG_NAMES_ADJUSTMENT_MAP = {
     'altglyph': 'altGlyph',
     'altglyphdef': 'altGlyphDef',
     'altglyphitem': 'altGlyphItem',
@@ -135,7 +139,7 @@ var SVG_TAG_NAMES_ADJUSTMENT_MAP = exports.SVG_TAG_NAMES_ADJUSTMENT_MAP = {
 };
 
 //Tags that causes exit from foreign content
-var EXITS_FOREIGN_CONTENT = Object.create(null);
+var EXITS_FOREIGN_CONTENT = {};
 
 EXITS_FOREIGN_CONTENT[$.B] = true;
 EXITS_FOREIGN_CONTENT[$.BIG] = true;
@@ -185,11 +189,14 @@ EXITS_FOREIGN_CONTENT[$.VAR] = true;
 //Check exit from foreign content
 exports.causesExit = function (startTagToken) {
     var tn = startTagToken.tagName;
-    var isFontWithAttrs = tn === $.FONT && (Tokenizer.getTokenAttr(startTagToken, ATTRS.COLOR) !== null ||
-                                            Tokenizer.getTokenAttr(startTagToken, ATTRS.SIZE) !== null ||
-                                            Tokenizer.getTokenAttr(startTagToken, ATTRS.FACE) !== null);
 
-    return isFontWithAttrs ? true : EXITS_FOREIGN_CONTENT[tn];
+    if (tn === $.FONT && (Tokenizer.getTokenAttr(startTagToken, ATTRS.COLOR) !== null ||
+        Tokenizer.getTokenAttr(startTagToken, ATTRS.SIZE) !== null ||
+        Tokenizer.getTokenAttr(startTagToken, ATTRS.FACE) !== null)) {
+        return true;
+    }
+
+    return EXITS_FOREIGN_CONTENT[tn];
 };
 
 //Token adjustments
@@ -231,11 +238,11 @@ exports.adjustTokenSVGTagName = function (token) {
 };
 
 //Integration points
-function isMathMLTextIntegrationPoint(tn, ns) {
+exports.isMathMLTextIntegrationPoint = function (tn, ns) {
     return ns === NS.MATHML && (tn === $.MI || tn === $.MO || tn === $.MN || tn === $.MS || tn === $.MTEXT);
-}
+};
 
-function isHtmlIntegrationPoint(tn, ns, attrs) {
+exports.isHtmlIntegrationPoint = function (tn, ns, attrs) {
     if (ns === NS.MATHML && tn === $.ANNOTATION_XML) {
         for (var i = 0; i < attrs.length; i++) {
             if (attrs[i].name === ATTRS.ENCODING) {
@@ -247,14 +254,4 @@ function isHtmlIntegrationPoint(tn, ns, attrs) {
     }
 
     return ns === NS.SVG && (tn === $.FOREIGN_OBJECT || tn === $.DESC || tn === $.TITLE);
-}
-
-exports.isIntegrationPoint = function (tn, ns, attrs, foreignNS) {
-    if ((!foreignNS || foreignNS === NS.HTML) && isHtmlIntegrationPoint(tn, ns, attrs))
-        return true;
-
-    if ((!foreignNS || foreignNS === NS.MATHML) && isMathMLTextIntegrationPoint(tn, ns))
-        return true;
-
-    return false;
 };

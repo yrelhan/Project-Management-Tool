@@ -1,7 +1,5 @@
 "use strict";
 
-const attributes = require("../attributes.js");
-
 exports.implementation = class AttrImpl {
   constructor(_, privateData) {
     this._namespace = privateData.namespace !== undefined ? privateData.namespace : null;
@@ -26,11 +24,12 @@ exports.implementation = class AttrImpl {
   }
 
   get name() {
-    return this._qualifiedName;
+    return exports.getAttrImplQualifiedName(this);
   }
 
+  // Delegate to name
   get nodeName() {
-    return this._qualifiedName;
+    return this.name;
   }
 
   get value() {
@@ -40,7 +39,7 @@ exports.implementation = class AttrImpl {
     if (this._element === null) {
       this._value = v;
     } else {
-      attributes.changeAttribute(this._element, this, v);
+      exports.changeAttributeImpl(this._element, this, v);
     }
   }
 
@@ -63,13 +62,26 @@ exports.implementation = class AttrImpl {
   get ownerElement() {
     return this._element;
   }
+};
 
-  get _qualifiedName() {
-    // https://dom.spec.whatwg.org/#concept-attribute-qualified-name
-    if (this._namespacePrefix === null) {
-      return this._localName;
-    }
+exports.changeAttributeImpl = function (element, attributeImpl, value) {
+  // https://dom.spec.whatwg.org/#concept-element-attributes-change
 
-    return this._namespacePrefix + ":" + this._localName;
+  // TODO mutation observer stuff
+
+  const oldValue = attributeImpl._value;
+  attributeImpl._value = value;
+
+  // Run jsdom hooks; roughly correspond to spec's "An attribute is set and an attribute is changed."
+  element._attrModified(exports.getAttrImplQualifiedName(attributeImpl), value, oldValue);
+};
+
+exports.getAttrImplQualifiedName = function (attributeImpl) {
+  // https://dom.spec.whatwg.org/#concept-attribute-qualified-name
+
+  if (attributeImpl._namespacePrefix === null) {
+    return attributeImpl._localName;
   }
+
+  return attributeImpl._namespacePrefix + ":" + attributeImpl._localName;
 };

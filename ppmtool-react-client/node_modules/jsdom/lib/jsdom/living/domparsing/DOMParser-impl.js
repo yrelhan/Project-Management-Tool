@@ -1,6 +1,7 @@
 "use strict";
 const Document = require("../generated/Document");
-const { applyDocumentFeatures } = require("../../browser/documentfeatures");
+const core = require("..");
+const applyDocumentFeatures = require("../../browser/documentfeatures").applyDocumentFeatures;
 
 exports.implementation = class DOMParserImpl {
   parseFromString(string, contentType) {
@@ -18,7 +19,8 @@ exports.implementation = class DOMParserImpl {
           return createScriptingDisabledDocument("xml", contentType, string);
         } catch (error) {
           const document = createScriptingDisabledDocument("xml", contentType);
-          const element = document.createElementNS("http://www.mozilla.org/newlayout/xml/parsererror.xml", "parsererror");
+          const element = document.createElementNS(
+            "http://www.mozilla.org/newlayout/xml/parsererror.xml", "parsererror");
 
           element.textContent = error.message;
 
@@ -35,6 +37,7 @@ exports.implementation = class DOMParserImpl {
 
 function createScriptingDisabledDocument(parsingMode, contentType, string) {
   const document = Document.createImpl([], {
+    core,
     options: {
       parsingMode,
       encoding: "UTF-8",
@@ -46,11 +49,12 @@ function createScriptingDisabledDocument(parsingMode, contentType, string) {
   // "scripting enabled" set to false
   applyDocumentFeatures(document, {
     FetchExternalResources: [],
+    ProcessExternalResources: false,
     SkipExternalResources: false
   });
 
   if (string !== undefined) {
-    document._htmlToDom.appendToDocument(string, document);
+    document._htmlToDom.appendHtmlToDocument(string, document);
   }
   document.close();
   return document;

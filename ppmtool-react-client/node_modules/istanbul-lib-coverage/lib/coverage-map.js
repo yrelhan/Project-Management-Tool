@@ -2,15 +2,15 @@
  Copyright 2012-2015, Yahoo Inc.
  Copyrights licensed under the New BSD License. See the accompanying LICENSE file for terms.
  */
-'use strict';
+"use strict";
 
-const FileCoverage = require('./file').FileCoverage;
-const CoverageSummary = require('./file').CoverageSummary;
+var FileCoverage = require('./file').FileCoverage,
+    CoverageSummary = require('./file').CoverageSummary;
 
 function loadMap(source) {
-    const data = Object.create(null);
-    Object.keys(source).forEach(k => {
-        const cov = source[k];
+    var data = {};
+    Object.keys(source).forEach(function (k) {
+        var cov = source[k];
         if (cov instanceof FileCoverage) {
             data[k] = cov;
         } else {
@@ -27,7 +27,7 @@ function loadMap(source) {
  */
 function CoverageMap(obj) {
     if (!obj) {
-        this.data = Object.create(null);
+        this.data = {};
     } else if (obj instanceof CoverageMap) {
         this.data = obj.data;
     } else {
@@ -40,19 +40,20 @@ function CoverageMap(obj) {
  *  correctly for the same files and additional file coverage keys are created
  *  as needed.
  */
-CoverageMap.prototype.merge = function(obj) {
-    let other;
+CoverageMap.prototype.merge = function (obj) {
+    var that = this,
+        other;
     if (obj instanceof CoverageMap) {
         other = obj;
     } else {
         other = new CoverageMap(obj);
     }
-    Object.keys(other.data).forEach(k => {
-        const fc = other.data[k];
-        if (this.data[k]) {
-            this.data[k].merge(fc);
+    Object.keys(other.data).forEach(function (k) {
+        var fc = other.data[k];
+        if (that.data[k]) {
+            that.data[k].merge(fc);
         } else {
-            this.data[k] = fc;
+            that.data[k] = fc;
         }
     });
 };
@@ -62,25 +63,26 @@ CoverageMap.prototype.merge = function(obj) {
  *  should be included in the coveragemap. False if it should be
  *  removed.
  */
-CoverageMap.prototype.filter = function(callback) {
-    Object.keys(this.data).forEach(k => {
-        if (!callback(k)) {
-            delete this.data[k];
-        }
-    });
+CoverageMap.prototype.filter = function (callback) {
+     var that = this;
+     Object.keys(that.data).forEach(function (k) {
+         if (!callback(k)) {
+             delete that.data[k];
+         }
+     });
 };
 /**
  * returns a JSON-serializable POJO for this coverage map
  * @returns {Object}
  */
-CoverageMap.prototype.toJSON = function() {
+CoverageMap.prototype.toJSON = function () {
     return this.data;
 };
 /**
  * returns an array for file paths for which this map has coverage
  * @returns {Array{string}} - array of files
  */
-CoverageMap.prototype.files = function() {
+CoverageMap.prototype.files = function () {
     return Object.keys(this.data);
 };
 /**
@@ -88,8 +90,8 @@ CoverageMap.prototype.files = function() {
  * @param {String} file
  * @returns {FileCoverage}
  */
-CoverageMap.prototype.fileCoverageFor = function(file) {
-    const fc = this.data[file];
+CoverageMap.prototype.fileCoverageFor = function (file) {
+    var fc = this.data[file];
     if (!fc) {
         throw new Error('No file coverage available for: ' + file);
     }
@@ -101,9 +103,9 @@ CoverageMap.prototype.fileCoverageFor = function(file) {
  * otherwise a new key is added to the map.
  * @param {FileCoverage} fc the file coverage to add
  */
-CoverageMap.prototype.addFileCoverage = function(fc) {
-    const cov = new FileCoverage(fc);
-    const path = cov.path;
+CoverageMap.prototype.addFileCoverage = function (fc) {
+    var cov = new FileCoverage(fc),
+        path = cov.path;
     if (this.data[path]) {
         this.data[path].merge(cov);
     } else {
@@ -114,14 +116,15 @@ CoverageMap.prototype.addFileCoverage = function(fc) {
  * returns the coverage summary for all the file coverage objects in this map.
  * @returns {CoverageSummary}
  */
-CoverageMap.prototype.getCoverageSummary = function() {
-    const ret = new CoverageSummary();
-    this.files().forEach(key => {
-        ret.merge(this.fileCoverageFor(key).toSummary());
+CoverageMap.prototype.getCoverageSummary = function () {
+    var that = this,
+        ret = new CoverageSummary();
+    this.files().forEach(function (key) {
+        ret.merge(that.fileCoverageFor(key).toSummary());
     });
     return ret;
 };
 
 module.exports = {
-    CoverageMap
+    CoverageMap: CoverageMap
 };

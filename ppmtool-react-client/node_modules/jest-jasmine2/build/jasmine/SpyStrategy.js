@@ -1,35 +1,14 @@
-'use strict';
-
-Object.defineProperty(exports, '__esModule', {
-  value: true
-});
-exports.default = void 0;
-
-function _defineProperty(obj, key, value) {
-  if (key in obj) {
-    Object.defineProperty(obj, key, {
-      value: value,
-      enumerable: true,
-      configurable: true,
-      writable: true
-    });
-  } else {
-    obj[key] = value;
-  }
-  return obj;
-}
-
-/**
- * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- */
+'use strict'; /**
+               * Copyright (c) 2014-present, Facebook, Inc. All rights reserved.
+               *
+               * This source code is licensed under the BSD-style license found in the
+               * LICENSE file in the root directory of this source tree. An additional grant
+               * of patent rights can be found in the PATENTS file in the same directory.
+               *
+               */
 // This file is a heavily modified fork of Jasmine. Original license:
-
 /*
-Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+Copyright (c) 2008-2016 Pivotal Labs
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
@@ -50,92 +29,67 @@ LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
-class SpyStrategy {
-  constructor({
-    name = 'unknown',
-    fn = function() {},
-    getSpy = function() {}
-  } = {}) {
-    _defineProperty(this, 'identity', void 0);
 
-    _defineProperty(this, 'exec', void 0);
+/* eslint-disable sort-keys */
 
-    _defineProperty(this, 'callThrough', void 0);
+function SpyStrategy(options) {
+  options = options || {};
 
-    _defineProperty(this, 'returnValue', void 0);
+  const identity = options.name || 'unknown';
+  const originalFn = options.fn || function () {};
+  const getSpy = options.getSpy || function () {};
+  let plan = function () {};
 
-    _defineProperty(this, 'returnValues', void 0);
+  this.identity = function () {
+    return identity;
+  };
 
-    _defineProperty(this, 'throwError', void 0);
+  this.exec = function () {
+    return plan.apply(this, arguments);
+  };
 
-    _defineProperty(this, 'callFake', void 0);
+  this.callThrough = function () {
+    plan = originalFn;
+    return getSpy();
+  };
 
-    _defineProperty(this, 'stub', void 0);
-
-    const identity = name;
-    const originalFn = fn;
-
-    let plan = function plan() {};
-
-    this.identity = function() {
-      return identity;
+  this.returnValue = function (value) {
+    plan = function () {
+      return value;
     };
+    return getSpy();
+  };
 
-    this.exec = function() {
-      return plan.apply(this, arguments);
+  this.returnValues = function () {
+    const values = Array.prototype.slice.call(arguments);
+    plan = function () {
+      return values.shift();
     };
+    return getSpy();
+  };
 
-    this.callThrough = function() {
-      plan = originalFn;
-      return getSpy();
+  this.throwError = function (something) {
+    const error = something instanceof Error ? something : new Error(something);
+    plan = function () {
+      throw error;
     };
+    return getSpy();
+  };
 
-    this.returnValue = function(value) {
-      plan = function plan() {
-        return value;
-      };
+  this.callFake = function (fn) {
+    if (typeof fn !== 'function') {
+      throw new Error(
+      'Argument passed to callFake should be a function, got ' + fn);
 
-      return getSpy();
-    };
+    }
+    plan = fn;
+    return getSpy();
+  };
 
-    this.returnValues = function() {
-      const values = Array.prototype.slice.call(arguments);
-
-      plan = function plan() {
-        return values.shift();
-      };
-
-      return getSpy();
-    };
-
-    this.throwError = function(something) {
-      const error =
-        something instanceof Error ? something : new Error(something);
-
-      plan = function plan() {
-        throw error;
-      };
-
-      return getSpy();
-    };
-
-    this.callFake = function(fn) {
-      if (typeof fn !== 'function') {
-        throw new Error(
-          'Argument passed to callFake should be a function, got ' + fn
-        );
-      }
-
-      plan = fn;
-      return getSpy();
-    };
-
-    this.stub = function(_fn) {
-      plan = function plan() {};
-
-      return getSpy();
-    };
-  }
+  this.stub = function (fn) {
+    plan = function () {};
+    return getSpy();
+  };
 }
 
-exports.default = SpyStrategy;
+module.exports = SpyStrategy;

@@ -2,7 +2,7 @@
 const HTMLElementImpl = require("./HTMLElement-impl").implementation;
 const notImplemented = require("../../browser/not-implemented");
 const idlUtils = require("../generated/utils");
-const { Canvas } = require("../../utils");
+const Canvas = require("../../utils").Canvas;
 
 class HTMLCanvasElementImpl extends HTMLElementImpl {
   _attrModified(name, value) {
@@ -39,11 +39,18 @@ class HTMLCanvasElementImpl extends HTMLElementImpl {
       return this._context;
     }
 
-    notImplemented(
-      "HTMLCanvasElement.prototype.getContext (without installing the canvas npm package)",
-      this._ownerDocument._defaultView
-    );
+    notImplemented("HTMLCanvasElement.prototype.getContext (without installing the canvas npm package)",
+      this._ownerDocument._defaultView);
     return null;
+  }
+
+  probablySupportsContext(contextId) {
+    const canvas = this._getCanvas();
+    return canvas ? contextId === "2d" : false;
+  }
+
+  setContext() {
+    notImplemented("HTMLCanvasElement.prototype.setContext");
   }
 
   toDataURL() {
@@ -52,10 +59,8 @@ class HTMLCanvasElementImpl extends HTMLElementImpl {
       return canvas.toDataURL.apply(this._canvas, arguments);
     }
 
-    notImplemented(
-      "HTMLCanvasElement.prototype.toDataURL (without installing the canvas npm package)",
-      this._ownerDocument._defaultView
-    );
+    notImplemented("HTMLCanvasElement.prototype.toDataURL (without installing the canvas npm package)",
+      this._ownerDocument._defaultView);
     return null;
   }
 
@@ -68,7 +73,7 @@ class HTMLCanvasElementImpl extends HTMLElementImpl {
         case "image/jpg":
         case "image/jpeg":
           stream = canvas.createJPEGStream({
-            quality: Math.max(0, Math.min(1, qualityArgument)) * 100
+            quality: Math.min(0, Math.max(1, qualityArgument)) * 100
           });
           break;
         default:
@@ -84,10 +89,8 @@ class HTMLCanvasElementImpl extends HTMLElementImpl {
         callback(new window.Blob(buffers, { type }));
       });
     } else {
-      notImplemented(
-        "HTMLCanvasElement.prototype.toBlob (without installing the canvas npm package)",
-        window
-      );
+      notImplemented("HTMLCanvasElement.prototype.toBlob (without installing the canvas npm package)",
+        window);
     }
   }
 

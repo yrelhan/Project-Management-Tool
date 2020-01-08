@@ -1,18 +1,20 @@
 "use strict";
-const vm = require("vm");
-const idlUtils = require("../living/generated/utils");
 
 exports.availableDocumentFeatures = [
   "FetchExternalResources",
+  "ProcessExternalResources",
   "SkipExternalResources"
 ];
 
 exports.defaultDocumentFeatures = {
   FetchExternalResources: ["script", "link"], // omitted by default: "frame"
+  ProcessExternalResources: ["script"], // omitted by default: "frame", "iframe"
   SkipExternalResources: false
 };
 
-exports.applyDocumentFeatures = (documentImpl, features = {}) => {
+exports.applyDocumentFeatures = (documentImpl, features) => {
+  features = features || {};
+
   for (let i = 0; i < exports.availableDocumentFeatures.length; ++i) {
     const featureName = exports.availableDocumentFeatures[i];
     let featureSource;
@@ -42,14 +44,4 @@ exports.applyDocumentFeatures = (documentImpl, features = {}) => {
       }
     }
   }
-};
-
-exports.contextifyWindow = window => {
-  if (vm.isContext(window)) {
-    return;
-  }
-
-  vm.createContext(window);
-  const documentImpl = idlUtils.implForWrapper(window._document);
-  documentImpl._defaultView = window._globalProxy = vm.runInContext("this", window);
 };

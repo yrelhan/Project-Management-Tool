@@ -2,18 +2,18 @@
  Copyright 2012-2015, Yahoo Inc.
  Copyrights licensed under the New BSD License. See the accompanying LICENSE file for terms.
  */
-const path = require('path');
+var path = require('path');
 
 module.exports = {
-    create(name, cfg) {
+    create: function (name, cfg) {
         cfg = cfg || {};
-        let Cons;
-        try {
-            Cons = require(path.join(__dirname, 'lib', name));
-        } catch (e) {
-            Cons = require(name);
-        }
-
+        var Cons = require(path.join(__dirname, 'lib', name));
         return new Cons(cfg);
     }
 };
+
+
+
+
+
+

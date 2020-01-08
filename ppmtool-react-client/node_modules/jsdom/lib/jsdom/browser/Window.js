@@ -1,38 +1,23 @@
 "use strict";
 
 const webIDLConversions = require("webidl-conversions");
-const { CSSStyleDeclaration } = require("cssstyle");
-const { Performance: RawPerformance } = require("w3c-hr-time");
+const CSSStyleDeclaration = require("cssstyle").CSSStyleDeclaration;
 const notImplemented = require("./not-implemented");
 const VirtualConsole = require("../virtual-console");
-const { define, mixin } = require("../utils");
+const define = require("../utils").define;
 const EventTarget = require("../living/generated/EventTarget");
 const namedPropertiesWindow = require("../living/named-properties-window");
 const cssom = require("cssom");
 const postMessage = require("../living/post-message");
-const DOMException = require("domexception");
-const { btoa, atob } = require("abab");
+const DOMException = require("../web-idl/DOMException");
+const btoa = require("abab").btoa;
+const atob = require("abab").atob;
 const idlUtils = require("../living/generated/utils");
 const createXMLHttpRequest = require("../living/xmlhttprequest");
 const createFileReader = require("../living/generated/FileReader").createInterface;
-const createWebSocket = require("../living/generated/WebSocket").createInterface;
-const WebSocketImpl = require("../living/websockets/WebSocket-impl").implementation;
-const BarProp = require("../living/generated/BarProp");
 const Document = require("../living/generated/Document");
-const External = require("../living/generated/External");
 const Navigator = require("../living/generated/Navigator");
-const Performance = require("../living/generated/Performance");
-const Screen = require("../living/generated/Screen");
-const Storage = require("../living/generated/Storage");
-const createAbortController = require("../living/generated/AbortController").createInterface;
-const createAbortSignal = require("../living/generated/AbortSignal").createInterface;
 const reportException = require("../living/helpers/runtime-script-errors");
-const { matchesDontThrow } = require("../living/helpers/selectors");
-const SessionHistory = require("../living/window/SessionHistory");
-const { contextifyWindow } = require("./documentfeatures.js");
-
-const GlobalEventHandlersImpl = require("../living/nodes/GlobalEventHandlers-impl").implementation;
-const WindowEventHandlersImpl = require("../living/nodes/WindowEventHandlers-impl").implementation;
 
 // NB: the require() must be after assigning `module.exports` because this require() is circular
 // TODO: this above note might not even be true anymore... figure out the cycle and document it, or clean up.
@@ -52,15 +37,7 @@ dom.Window = Window;
 function Window(options) {
   EventTarget.setup(this);
 
-  const rawPerformance = new RawPerformance();
-  const windowInitialized = rawPerformance.now();
-
   const window = this;
-
-  mixin(window, WindowEventHandlersImpl.prototype);
-  mixin(window, GlobalEventHandlersImpl.prototype);
-
-  this._initGlobalEvents();
 
   ///// INTERFACES FROM THE DOM
   // TODO: consider a mode of some sort where these are not shared between all DOM instances
@@ -73,23 +50,29 @@ function Window(options) {
       value: dom[name]
     });
   }
+  this._core = dom;
 
   ///// PRIVATE DATA PROPERTIES
 
-  // vm initialization is deferred until script processing is activated
+  // vm initialization is defered until script processing is activated (in level1/core)
   this._globalProxy = this;
-  Object.defineProperty(idlUtils.implForWrapper(this), idlUtils.wrapperSymbol, { get: () => this._globalProxy });
 
-  let timers = Object.create(null);
-  let animationFrameCallbacks = Object.create(null);
+  this.__timers = Object.create(null);
+
+  // Set up the window as if it's a top level window.
+  // If it's not, then references will be corrected by frame/iframe code.
+  this._parent = this._top = this._globalProxy;
+  this._frameElement = null;
 
   // List options explicitly to be clear which are passed through
   this._document = Document.create([], {
+    core: dom,
     options: {
       parsingMode: options.parsingMode,
       contentType: options.contentType,
       encoding: options.encoding,
       cookieJar: options.cookieJar,
+      parser: options.parser,
       url: options.url,
       lastModified: options.lastModified,
       referrer: options.referrer,
@@ -103,93 +86,38 @@ function Window(options) {
       agentOptions: options.agentOptions,
       strictSSL: options.strictSSL,
       proxy: options.proxy,
-      parseOptions: options.parseOptions,
       defaultView: this._globalProxy,
       global: this
     }
   });
   // https://html.spec.whatwg.org/#session-history
-  this._sessionHistory = new SessionHistory({
+  this._sessionHistory = [{
     document: idlUtils.implForWrapper(this._document),
     url: idlUtils.implForWrapper(this._document)._URL,
     stateObject: null
-  }, this);
+  }];
+  this._currentSessionHistoryEntryIndex = 0;
 
-  // TODO NEWAPI can remove this
+
+  // This implements window.frames.length, since window.frames returns a
+  // self reference to the window object.  This value is incremented in the
+  // HTMLFrameElement init function (see: level2/html.js).
+  this._length = 0;
+
   if (options.virtualConsole) {
     if (options.virtualConsole instanceof VirtualConsole) {
       this._virtualConsole = options.virtualConsole;
     } else {
-      throw new TypeError("options.virtualConsole must be a VirtualConsole (from createVirtualConsole)");
+      throw new TypeError(
+        "options.virtualConsole must be a VirtualConsole (from createVirtualConsole)");
     }
   } else {
     this._virtualConsole = new VirtualConsole();
   }
 
-  this._runScripts = options.runScripts;
-  if (this._runScripts === "outside-only" || this._runScripts === "dangerously") {
-    contextifyWindow(this);
-  }
-
-  // Set up the window as if it's a top level window.
-  // If it's not, then references will be corrected by frame/iframe code.
-  this._parent = this._top = this._globalProxy;
-  this._frameElement = null;
-
-  // This implements window.frames.length, since window.frames returns a
-  // self reference to the window object.  This value is incremented in the
-  // HTMLFrameElement implementation.
-  this._length = 0;
-
-  this._pretendToBeVisual = options.pretendToBeVisual;
-  this._storageQuota = options.storageQuota;
-
-  // Some properties (such as localStorage and sessionStorage) share data
-  // between windows in the same origin. This object is intended
-  // to contain such data.
-  if (options.commonForOrigin && options.commonForOrigin[this._document.origin]) {
-    this._commonForOrigin = options.commonForOrigin;
-  } else {
-    this._commonForOrigin = {
-      [this._document.origin]: {
-        localStorageArea: new Map(),
-        sessionStorageArea: new Map(),
-        windowsInSameOrigin: [this]
-      }
-    };
-  }
-
-  this._currentOriginData = this._commonForOrigin[this._document.origin];
-
-  ///// WEB STORAGE
-
-  this._localStorage = Storage.create([], {
-    associatedWindow: this,
-    storageArea: this._currentOriginData.localStorageArea,
-    type: "localStorage",
-    url: this._document.documentURI,
-    storageQuota: this._storageQuota
-  });
-  this._sessionStorage = Storage.create([], {
-    associatedWindow: this,
-    storageArea: this._currentOriginData.sessionStorageArea,
-    type: "sessionStorage",
-    url: this._document.documentURI,
-    storageQuota: this._storageQuota
-  });
-
   ///// GETTERS
 
-  const locationbar = BarProp.create();
-  const menubar = BarProp.create();
-  const personalbar = BarProp.create();
-  const scrollbars = BarProp.create();
-  const statusbar = BarProp.create();
-  const toolbar = BarProp.create();
-  const external = External.create();
   const navigator = Navigator.create([], { userAgent: options.userAgent });
-  const performance = Performance.create([], { rawPerformance });
-  const screen = Screen.create();
 
   define(this, {
     get length() {
@@ -216,9 +144,6 @@ function Window(options) {
     get document() {
       return window._document;
     },
-    get external() {
-      return external;
-    },
     get location() {
       return idlUtils.wrapperForImpl(idlUtils.implForWrapper(window._document)._location);
     },
@@ -227,48 +152,10 @@ function Window(options) {
     },
     get navigator() {
       return navigator;
-    },
-    get locationbar() {
-      return locationbar;
-    },
-    get menubar() {
-      return menubar;
-    },
-    get personalbar() {
-      return personalbar;
-    },
-    get scrollbars() {
-      return scrollbars;
-    },
-    get statusbar() {
-      return statusbar;
-    },
-    get toolbar() {
-      return toolbar;
-    },
-    get performance() {
-      return performance;
-    },
-    get screen() {
-      return screen;
-    },
-    get localStorage() {
-      if (this._document.origin === "null") {
-        throw new DOMException("localStorage is not available for opaque origins", "SecurityError");
-      }
-
-      return this._localStorage;
-    },
-    get sessionStorage() {
-      if (this._document.origin === "null") {
-        throw new DOMException("sessionStorage is not available for opaque origins", "SecurityError");
-      }
-
-      return this._sessionStorage;
     }
   });
 
-  namedPropertiesWindow.initializeWindow(this, this._globalProxy);
+  namedPropertiesWindow.initializeWindow(this, dom.HTMLCollection);
 
   ///// METHODS for [ImplicitThis] hack
   // See https://lists.w3.org/Archives/Public/public-script-coord/2015JanMar/0109.html
@@ -279,54 +166,24 @@ function Window(options) {
   ///// METHODS
 
   let latestTimerId = 0;
-  let latestAnimationFrameCallbackId = 0;
 
   this.setTimeout = function (fn, ms) {
     const args = [];
     for (let i = 2; i < arguments.length; ++i) {
       args[i - 2] = arguments[i];
     }
-    return startTimer(window, setTimeout, clearTimeout, ++latestTimerId, fn, ms, timers, args);
+    return startTimer(window, setTimeout, clearTimeout, ++latestTimerId, fn, ms, args);
   };
   this.setInterval = function (fn, ms) {
     const args = [];
     for (let i = 2; i < arguments.length; ++i) {
       args[i - 2] = arguments[i];
     }
-    return startTimer(window, setInterval, clearInterval, ++latestTimerId, fn, ms, timers, args);
+    return startTimer(window, setInterval, clearInterval, ++latestTimerId, fn, ms, args);
   };
-  this.clearInterval = stopTimer.bind(this, timers);
-  this.clearTimeout = stopTimer.bind(this, timers);
-
-  if (this._pretendToBeVisual) {
-    this.requestAnimationFrame = fn => {
-      const timestamp = rawPerformance.now() - windowInitialized;
-      const fps = 1000 / 60;
-
-      return startTimer(
-        window,
-        setTimeout,
-        clearTimeout,
-        ++latestAnimationFrameCallbackId,
-        fn,
-        fps,
-        animationFrameCallbacks,
-        [timestamp]
-      );
-    };
-    this.cancelAnimationFrame = stopTimer.bind(this, animationFrameCallbacks);
-  }
-
-  this.__stopAllTimers = function () {
-    stopAllTimers(timers);
-    stopAllTimers(animationFrameCallbacks);
-
-    latestTimerId = 0;
-    latestAnimationFrameCallbackId = 0;
-
-    timers = Object.create(null);
-    animationFrameCallbacks = Object.create(null);
-  };
+  this.clearInterval = stopTimer.bind(this, window);
+  this.clearTimeout = stopTimer.bind(this, window);
+  this.__stopAllTimers = stopAllTimers.bind(this, window);
 
   function Option(text, value, defaultSelected, selected) {
     if (text === undefined) {
@@ -421,8 +278,9 @@ function Window(options) {
   });
 
   function wrapConsoleMethod(method) {
-    return (...args) => {
-      window._virtualConsole.emit(method, ...args);
+    return function () {
+      const args = Array.prototype.slice.call(arguments);
+      window._virtualConsole.emit.apply(window._virtualConsole, [method].concat(args));
     };
   }
 
@@ -431,7 +289,8 @@ function Window(options) {
   this.atob = function (str) {
     const result = atob(str);
     if (result === null) {
-      throw new DOMException("The string to be decoded contains invalid characters.", "InvalidCharacterError");
+      throw new DOMException(DOMException.INVALID_CHARACTER_ERR,
+        "The string to be decoded contains invalid characters.");
     }
     return result;
   };
@@ -439,24 +298,14 @@ function Window(options) {
   this.btoa = function (str) {
     const result = btoa(str);
     if (result === null) {
-      throw new DOMException("The string to be encoded contains invalid characters.", "InvalidCharacterError");
+      throw new DOMException(DOMException.INVALID_CHARACTER_ERR,
+        "The string to be encoded contains invalid characters.");
     }
     return result;
   };
 
   this.FileReader = createFileReader({
     window: this
-  }).interface;
-  this.WebSocket = createWebSocket({
-    window: this
-  }).interface;
-
-  const AbortSignalWrapper = createAbortSignal({
-    window: this
-  });
-  this.AbortSignal = AbortSignalWrapper.interface;
-  this.AbortController = createAbortController({
-    AbortSignal: AbortSignalWrapper
   }).interface;
 
   this.XMLHttpRequest = createXMLHttpRequest(this);
@@ -515,15 +364,13 @@ function Window(options) {
       delete this._document;
     }
 
-    this.__stopAllTimers();
-    WebSocketImpl.cleanUpWindow(this);
+    stopAllTimers(currentWindow);
   };
 
   this.getComputedStyle = function (node) {
-    const nodeImpl = idlUtils.implForWrapper(node);
     const s = node.style;
     const cs = new CSSStyleDeclaration();
-    const { forEach } = Array.prototype;
+    const forEach = Array.prototype.forEach;
 
     function setPropertiesFromRule(rule) {
       if (!rule.selectorText) {
@@ -533,7 +380,7 @@ function Window(options) {
       const selectors = rule.selectorText.split(cssSelectorSplitRE);
       let matched = false;
       for (const selectorText of selectors) {
-        if (selectorText !== "" && selectorText !== "," && !matched && matchesDontThrow(nodeImpl, selectorText)) {
+        if (selectorText !== "" && selectorText !== "," && !matched && matchesDontThrow(node, selectorText)) {
           matched = true;
           forEach.call(rule.style, property => {
             cs.setProperty(property, rule.style.getPropertyValue(property), rule.style.getPropertyPriority(property));
@@ -564,11 +411,6 @@ function Window(options) {
     return cs;
   };
 
-  // The captureEvents() and releaseEvents() methods must do nothing
-  this.captureEvents = function () {};
-
-  this.releaseEvents = function () {};
-
   ///// PUBLIC DATA PROPERTIES (TODO: should be getters)
 
   this.console = {
@@ -597,10 +439,6 @@ function Window(options) {
 
   define(this, {
     name: "nodejs",
-    // Node v6 has issues (presumably in the vm module)
-    // which this property exposes through an XHR test
-    // status: "",
-    devicePixelRatio: 1,
     innerWidth: 1024,
     innerHeight: 768,
     outerWidth: 1024,
@@ -609,17 +447,21 @@ function Window(options) {
     pageYOffset: 0,
     screenX: 0,
     screenY: 0,
-    scrollX: 0,
-    scrollY: 0,
-
-    // Not in spec, but likely to be added eventually:
-    // https://github.com/w3c/csswg-drafts/issues/1091
     screenLeft: 0,
     screenTop: 0,
+    scrollX: 0,
+    scrollY: 0,
+    scrollTop: 0,
+    scrollLeft: 0,
+    screen: {
+      width: 0,
+      height: 0
+    },
 
     alert: notImplementedMethod("window.alert"),
     blur: notImplementedMethod("window.blur"),
     confirm: notImplementedMethod("window.confirm"),
+    createPopup: notImplementedMethod("window.createPopup"),
     focus: notImplementedMethod("window.focus"),
     moveBy: notImplementedMethod("window.moveBy"),
     moveTo: notImplementedMethod("window.moveTo"),
@@ -630,7 +472,11 @@ function Window(options) {
     resizeTo: notImplementedMethod("window.resizeTo"),
     scroll: notImplementedMethod("window.scroll"),
     scrollBy: notImplementedMethod("window.scrollBy"),
-    scrollTo: notImplementedMethod("window.scrollTo")
+    scrollTo: notImplementedMethod("window.scrollTo"),
+
+    toString: () => {
+      return "[object Window]";
+    }
   });
 
   ///// INITIALIZATION
@@ -656,17 +502,16 @@ function Window(options) {
 
 Object.setPrototypeOf(Window, EventTarget.interface);
 Object.setPrototypeOf(Window.prototype, EventTarget.interface.prototype);
-Object.defineProperty(Window.prototype, Symbol.toStringTag, {
-  value: "Window",
-  writable: false,
-  enumerable: false,
-  configurable: true
-});
 
-function startTimer(window, startFn, stopFn, timerId, callback, ms, timerStorage, args) {
-  if (!window || !window._document) {
-    return undefined;
+function matchesDontThrow(el, selector) {
+  try {
+    return el.matches(selector);
+  } catch (e) {
+    return false;
   }
+}
+
+function startTimer(window, startFn, stopFn, timerId, callback, ms, args) {
   if (typeof callback !== "function") {
     const code = String(callback);
     callback = window._globalProxy.eval.bind(window, code + `\n//# sourceURL=${window.location.href}`);
@@ -682,23 +527,24 @@ function startTimer(window, startFn, stopFn, timerId, callback, ms, timerStorage
   };
 
   const res = startFn(callback, ms);
-  timerStorage[timerId] = [res, stopFn];
+  window.__timers[timerId] = [res, stopFn];
   return timerId;
 }
 
-function stopTimer(timerStorage, id) {
-  const timer = timerStorage[id];
+function stopTimer(window, id) {
+  const timer = window.__timers[id];
   if (timer) {
     // Need to .call() with undefined to ensure the thisArg is not timer itself
     timer[1].call(undefined, timer[0]);
-    delete timerStorage[id];
+    delete window.__timers[id];
   }
 }
 
-function stopAllTimers(timers) {
-  Object.keys(timers).forEach(key => {
-    const timer = timers[key];
+function stopAllTimers(window) {
+  Object.keys(window.__timers).forEach(key => {
+    const timer = window.__timers[key];
     // Need to .call() with undefined to ensure the thisArg is not timer itself
     timer[1].call(undefined, timer[0]);
   });
+  window.__timers = Object.create(null);
 }

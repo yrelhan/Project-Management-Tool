@@ -1,5 +1,7 @@
 "use strict";
-const { mixin } = require("../../utils");
+
+const idlUtils = require("../generated/utils");
+
 const NodeImpl = require("./Node-impl").implementation;
 const ChildNodeImpl = require("./ChildNode-impl").implementation;
 
@@ -17,7 +19,7 @@ class DocumentTypeImpl extends NodeImpl {
   }
 }
 
-mixin(DocumentTypeImpl.prototype, ChildNodeImpl.prototype);
+idlUtils.mixin(DocumentTypeImpl.prototype, ChildNodeImpl.prototype);
 
 module.exports = {
   implementation: DocumentTypeImpl

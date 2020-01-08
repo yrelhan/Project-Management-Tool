@@ -1,75 +1,48 @@
-'use strict';
+'use strict'; /**
+               * Copyright (c) 2014-present, Facebook, Inc. All rights reserved.
+               *
+               * This source code is licensed under the BSD-style license found in the
+               * LICENSE file in the root directory of this source tree. An additional grant
+               * of patent rights can be found in the PATENTS file in the same directory.
+               *
+               * 
+               */
 
-Object.defineProperty(exports, '__esModule', {
-  value: true
-});
-exports.default = expectationResultFactory;
-
-var _prettyFormat = _interopRequireDefault(require('pretty-format'));
-
-function _interopRequireDefault(obj) {
-  return obj && obj.__esModule ? obj : {default: obj};
-}
-
-/**
- * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- */
-function messageFormatter({error, message, passed}) {
+function messageFormatter(_ref) {let error = _ref.error,message = _ref.message,passed = _ref.passed;
   if (passed) {
     return 'Passed.';
   }
-
   if (message) {
     return message;
   }
-
-  if (typeof error === 'string') {
-    return error;
-  }
-
-  if (
-    // duck-type Error, see #2549
-    error &&
-    typeof error === 'object' &&
-    typeof error.message === 'string' &&
-    typeof error.name === 'string'
-  ) {
-    return `${error.name}: ${error.message}`;
-  }
-
-  return `thrown: ${(0, _prettyFormat.default)(error, {
-    maxDepth: 3
-  })}`;
-}
-
-function stackFormatter(options, initError, errorMessage) {
-  if (options.passed) {
+  if (!error) {
     return '';
   }
-
-  if (options.error) {
-    if (options.error.stack) {
-      return options.error.stack;
-    }
-
-    if (options.error === errorMessage) {
-      return errorMessage;
-    }
-  }
-
-  if (initError) {
-    return errorMessage.trimRight() + '\n\n' + initError.stack;
-  }
-
-  return new Error(errorMessage).stack;
+  return error.message && error.name ?
+  `${error.name}: ${error.message}` :
+  `${error.toString()} thrown`;
 }
 
-function expectationResultFactory(options, initError) {
+function stackFormatter(options, errorMessage) {
+  if (options.passed) {
+    return '';
+  }var _ref2 =
+  options.error || new Error(errorMessage);const stack = _ref2.stack;
+  return stack;
+}
+
+
+
+
+
+
+
+
+
+
+function expectationResultFactory(options) {
   const message = messageFormatter(options);
-  const stack = stackFormatter(options, initError, message);
+  const stack = stackFormatter(options, message);
 
   if (options.passed) {
     return {
@@ -77,8 +50,8 @@ function expectationResultFactory(options, initError) {
       matcherName: options.matcherName,
       message,
       passed: options.passed,
-      stack
-    };
+      stack };
+
   }
 
   return {
@@ -88,6 +61,8 @@ function expectationResultFactory(options, initError) {
     matcherName: options.matcherName,
     message,
     passed: options.passed,
-    stack
-  };
+    stack };
+
 }
+
+module.exports = expectationResultFactory;

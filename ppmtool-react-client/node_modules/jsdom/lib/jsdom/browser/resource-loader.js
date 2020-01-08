@@ -1,12 +1,12 @@
 "use strict";
 
-const MIMEType = require("whatwg-mimetype");
-const parseDataURL = require("data-urls");
+const parseContentType = require("content-type-parser");
 const sniffHTMLEncoding = require("html-encoding-sniffer");
 const whatwgEncoding = require("whatwg-encoding");
+const parseDataUrl = require("../utils").parseDataUrl;
 const fs = require("fs");
 const request = require("request");
-const { documentBaseURLSerialized } = require("../living/helpers/document-base-url");
+const documentBaseURLSerialized = require("../living/helpers/document-base-url").documentBaseURLSerialized;
 const NODE_TYPE = require("../living/node-type");
 
 /* eslint-disable no-restricted-modules */
@@ -53,10 +53,10 @@ function createResourceLoadHandler(element, resourceUrl, document, loadCallback)
   };
 }
 
-exports.readFile = function (filePath, { defaultEncoding, detectMetaCharset }, callback) {
+exports.readFile = function (filePath, options, callback) {
   const readableStream = fs.createReadStream(filePath);
 
-  let data = Buffer.alloc(0);
+  let data = new Buffer(0);
 
   readableStream.on("error", callback);
 
@@ -64,11 +64,13 @@ exports.readFile = function (filePath, { defaultEncoding, detectMetaCharset }, c
     data = Buffer.concat([data, chunk]);
   });
 
+  const defaultEncoding = options.defaultEncoding;
+  const detectMetaCharset = options.detectMetaCharset;
+
   readableStream.on("end", () => {
     // Not passing default encoding means binary
     if (defaultEncoding) {
-      const encoding = detectMetaCharset ?
-                       sniffHTMLEncoding(data, { defaultEncoding }) :
+      const encoding = detectMetaCharset ? sniffHTMLEncoding(data, { defaultEncoding }) :
                        whatwgEncoding.getBOMEncoding(data) || defaultEncoding;
       const decoded = whatwgEncoding.decode(data, encoding);
       callback(null, decoded, { headers: { "content-type": "text/plain;charset=" + encoding } });
@@ -87,28 +89,29 @@ exports.readFile = function (filePath, { defaultEncoding, detectMetaCharset }, c
   };
 };
 
-function readDataURL(dataURL, { defaultEncoding, detectMetaCharset }, callback) {
+function readDataUrl(dataUrl, options, callback) {
+  const defaultEncoding = options.defaultEncoding;
   try {
-    const parsed = parseDataURL(dataURL);
+    const data = parseDataUrl(dataUrl);
     // If default encoding does not exist, pass on binary data.
     if (defaultEncoding) {
+      const contentType = parseContentType(data.type) || parseContentType("text/plain");
       const sniffOptions = {
-        transportLayerEncodingLabel: parsed.mimeType.parameters.get("charset"),
+        transportLayerEncodingLabel: contentType.get("charset"),
         defaultEncoding
       };
 
-      const encoding = detectMetaCharset ?
-                       sniffHTMLEncoding(parsed.body, sniffOptions) :
-                       whatwgEncoding.getBOMEncoding(parsed.body) ||
-                        whatwgEncoding.labelToName(parsed.mimeType.parameters.get("charset")) ||
-                        defaultEncoding;
-      const decoded = whatwgEncoding.decode(parsed.body, encoding);
+      const encoding = options.detectMetaCharset ? sniffHTMLEncoding(data.buffer, sniffOptions) :
+                       whatwgEncoding.getBOMEncoding(data.buffer) ||
+                       whatwgEncoding.labelToName(contentType.get("charset")) || defaultEncoding;
+      const decoded = whatwgEncoding.decode(data.buffer, encoding);
 
-      parsed.mimeType.parameters.set("charset", encoding);
+      contentType.set("charset", encoding);
+      data.type = contentType.toString();
 
-      callback(null, decoded, { headers: { "content-type": parsed.mimeType.toString() } });
+      callback(null, decoded, { headers: { "content-type": data.type } });
     } else {
-      callback(null, parsed.body, { headers: { "content-type": parsed.mimeType.toString() } });
+      callback(null, data.buffer, { headers: { "content-type": data.type } });
     }
   } catch (err) {
     callback(err, null);
@@ -120,15 +123,15 @@ function readDataURL(dataURL, { defaultEncoding, detectMetaCharset }, callback) 
 // (see: https://github.com/request/request/blob/master/lib/cookies.js).
 // Therefore, to pass our cookie jar to the request, we need to create
 // request's wrapper and monkey patch it with our jar.
-exports.wrapCookieJarForRequest = cookieJar => {
+function wrapCookieJarForRequest(cookieJar) {
   const jarWrapper = request.jar();
   jarWrapper._jar = cookieJar;
   return jarWrapper;
-};
+}
 
 function fetch(urlObj, options, callback) {
   if (urlObj.protocol === "data:") {
-    return readDataURL(urlObj.href, options, callback);
+    return readDataUrl(urlObj.href, options, callback);
   } else if (urlObj.hostname) {
     return exports.download(urlObj, options, callback);
   }
@@ -160,7 +163,7 @@ exports.download = function (url, options, callback) {
     agentClass: options.agentClass,
     strictSSL: options.strictSSL,
     gzip: true,
-    jar: exports.wrapCookieJarForRequest(options.cookieJar),
+    jar: wrapCookieJarForRequest(options.cookieJar),
     encoding: null,
     headers: {
       "User-Agent": options.userAgent,
@@ -176,26 +179,25 @@ exports.download = function (url, options, callback) {
   }
   Object.assign(requestOptions.headers, options.headers);
 
-  const { defaultEncoding, detectMetaCharset } = options;
+  const defaultEncoding = options.defaultEncoding;
+  const detectMetaCharset = options.detectMetaCharset;
 
   const req = request(url, requestOptions, (error, response, bufferData) => {
     if (!error) {
       // If default encoding does not exist, pass on binary data.
       if (defaultEncoding) {
-        const contentType = MIMEType.parse(response.headers["content-type"]) || new MIMEType("text/plain");
+        const contentType = parseContentType(response.headers["content-type"]) || parseContentType("text/plain");
         const sniffOptions = {
-          transportLayerEncodingLabel: contentType.parameters.get("charset"),
+          transportLayerEncodingLabel: contentType.get("charset"),
           defaultEncoding
         };
 
-        const encoding = detectMetaCharset ?
-                         sniffHTMLEncoding(bufferData, sniffOptions) :
-                         whatwgEncoding.getBOMEncoding(bufferData) ||
-                           whatwgEncoding.labelToName(contentType.parameters.get("charset")) ||
-                           defaultEncoding;
+        const encoding = detectMetaCharset ? sniffHTMLEncoding(bufferData, sniffOptions) :
+                        whatwgEncoding.getBOMEncoding(bufferData) ||
+                        whatwgEncoding.labelToName(contentType.get("charset")) || defaultEncoding;
         const decoded = whatwgEncoding.decode(bufferData, encoding);
 
-        contentType.parameters.set("charset", encoding);
+        contentType.set("charset", encoding);
         response.headers["content-type"] = contentType.toString();
 
         callback(null, decoded, response);
@@ -254,18 +256,16 @@ exports.load = function (element, urlString, options, callback) {
     }
   }
   if (typeof customLoader === "function") {
-    req = customLoader(
-      {
-        element,
-        url: urlObj,
-        cookie: cookieJar.getCookieStringSync(urlObj, { http: true }),
-        baseUrl: documentBaseURLSerialized(document),
-        defaultFetch(fetchCallback) {
-          return fetch(urlObj, options, fetchCallback);
-        }
-      },
-      wrappedEnqueued
-    );
+    req = customLoader({
+      element,
+      url: urlObj,
+      cookie: cookieJar.getCookieStringSync(urlObj, { http: true }),
+      baseUrl: documentBaseURLSerialized(document),
+      defaultFetch(fetchCallback) {
+        return fetch(urlObj, options, fetchCallback);
+      }
+    },
+    wrappedEnqueued);
   } else {
     req = fetch(urlObj, options, wrappedEnqueued);
   }

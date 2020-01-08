@@ -1,12 +1,13 @@
 "use strict";
 
+const vm = require("vm");
 const validateNames = require("../helpers/validate-names");
 const DocumentType = require("../generated/DocumentType");
 const Document = require("../generated/Document");
-const { HTML_NS, SVG_NS } = require("../helpers/namespaces");
 
 class DOMImplementationImpl {
   constructor(args, privateData) {
+    this.core = privateData.core;
     this._ownerDocument = privateData.ownerDocument;
     this._features = Object.create(null);
   }
@@ -19,6 +20,7 @@ class DOMImplementationImpl {
     validateNames.qname(qualifiedName);
 
     return DocumentType.createImpl([], {
+      core: this.core,
       ownerDocument: this._ownerDocument,
       name: qualifiedName,
       publicId,
@@ -27,16 +29,15 @@ class DOMImplementationImpl {
   }
 
   createDocument(namespace, qualifiedName, doctype) {
-    let contentType = "application/xml";
-
-    if (namespace === HTML_NS) {
-      contentType = "application/xhtml+xml";
-    } else if (namespace === SVG_NS) {
-      contentType = "image/svg+xml";
+    namespace = namespace !== null ? String(namespace) : namespace;
+    qualifiedName = qualifiedName === null ? "" : String(qualifiedName);
+    if (doctype === undefined) {
+      doctype = null;
     }
 
     const document = Document.createImpl([], {
-      options: { contentType, parsingMode: "xml", encoding: "UTF-8" }
+      core: this.core,
+      options: { parsingMode: "xml", encoding: "UTF-8" }
     });
 
     let element = null;
@@ -52,8 +53,6 @@ class DOMImplementationImpl {
       document.appendChild(element);
     }
 
-    document.origin = this._ownerDocument.origin;
-
     return document;
   }
 
@@ -61,12 +60,14 @@ class DOMImplementationImpl {
     // Let doc be a new document that is an HTML document.
     // Set doc's content type to "text/html".
     const document = Document.createImpl([], {
+      core: this.core,
       options: { parsingMode: "html", encoding: "UTF-8" }
     });
 
     // Create a doctype, with "html" as its name and with its node document set
     // to doc. Append the newly created node to doc.
     const doctype = DocumentType.createImpl([], {
+      core: this.core,
       ownerDocument: this,
       name: "html",
       publicId: "",
@@ -76,7 +77,7 @@ class DOMImplementationImpl {
     document.appendChild(doctype);
 
     // Create an html element in the HTML namespace, and append it to doc.
-    const htmlElement = document.createElementNS(HTML_NS, "html");
+    const htmlElement = document.createElementNS("http://www.w3.org/1999/xhtml", "html");
     document.appendChild(htmlElement);
 
     // Create a head element in the HTML namespace, and append it to the html
@@ -137,8 +138,14 @@ class DOMImplementationImpl {
       } else {
         this._features[feature].push(version);
       }
-    } else {
-      this._features[feature] = [];
+
+      if (feature === "processexternalresources" &&
+          (version === "script" || (version.indexOf && version.indexOf("script") !== -1)) &&
+          !vm.isContext(this._ownerDocument._global)) {
+        vm.createContext(this._ownerDocument._global);
+        this._ownerDocument._defaultView._globalProxy = vm.runInContext("this", this._ownerDocument._global);
+        this._ownerDocument._defaultView = this._ownerDocument._defaultView._globalProxy;
+      }
     }
   }
 

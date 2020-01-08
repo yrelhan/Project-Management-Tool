@@ -1,7 +1,7 @@
 "use strict";
-const conversions = require("webidl-conversions");
+
 const HTMLElementImpl = require("./HTMLElement-impl").implementation;
-const { reflectURLAttribute } = require("../../utils");
+const reflectURLAttribute = require("../../utils").reflectURLAttribute;
 
 class HTMLSourceElementImpl extends HTMLElementImpl {
   get src() {
@@ -10,14 +10,6 @@ class HTMLSourceElementImpl extends HTMLElementImpl {
 
   set src(value) {
     this.setAttribute("src", value);
-  }
-
-  get srcset() {
-    return conversions.USVString(this.getAttribute("srcset"));
-  }
-
-  set srcset(value) {
-    this.setAttribute("srcset", value);
   }
 }
 

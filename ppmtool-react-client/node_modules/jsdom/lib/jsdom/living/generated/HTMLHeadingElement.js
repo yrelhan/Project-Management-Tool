@@ -2,69 +2,45 @@
 
 const conversions = require("webidl-conversions");
 const utils = require("./utils.js");
-
-const impl = utils.implSymbol;
 const HTMLElement = require("./HTMLElement.js");
+const impl = utils.implSymbol;
 
 function HTMLHeadingElement() {
   throw new TypeError("Illegal constructor");
 }
+HTMLHeadingElement.prototype = Object.create(HTMLElement.interface.prototype);
+HTMLHeadingElement.prototype.constructor = HTMLHeadingElement;
 
-Object.setPrototypeOf(HTMLHeadingElement.prototype, HTMLElement.interface.prototype);
-Object.setPrototypeOf(HTMLHeadingElement, HTMLElement.interface);
 
-Object.defineProperty(HTMLHeadingElement, "prototype", {
-  value: HTMLHeadingElement.prototype,
-  writable: false,
-  enumerable: false,
-  configurable: false
-});
-
+HTMLHeadingElement.prototype.toString = function () {
+  if (this === HTMLHeadingElement.prototype) {
+    return "[object HTMLHeadingElementPrototype]";
+  }
+  return HTMLElement.interface.prototype.toString.call(this);
+};
 Object.defineProperty(HTMLHeadingElement.prototype, "align", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
     const value = this.getAttribute("align");
     return value === null ? "" : value;
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = conversions["DOMString"](V, {
-      context: "Failed to set the 'align' property on 'HTMLHeadingElement': The provided value"
-    });
-
+    V = conversions["DOMString"](V);
     this.setAttribute("align", V);
   },
-
   enumerable: true,
   configurable: true
 });
 
-Object.defineProperty(HTMLHeadingElement.prototype, Symbol.toStringTag, {
-  value: "HTMLHeadingElement",
-  writable: false,
-  enumerable: false,
-  configurable: true
-});
 
 const iface = {
-  // When an interface-module that implements this interface as a mixin is loaded, it will append its own `.is()`
-  // method into this array. It allows objects that directly implements *those* interfaces to be recognized as
-  // implementing this mixin interface.
-  _mixedIntoPredicates: [],
+  mixedInto: [],
   is(obj) {
     if (obj) {
-      if (utils.hasOwn(obj, impl) && obj[impl] instanceof Impl.implementation) {
+      if (obj[impl] instanceof Impl.implementation) {
         return true;
       }
-      for (const isMixedInto of module.exports._mixedIntoPredicates) {
-        if (isMixedInto(obj)) {
+      for (let i = 0; i < module.exports.mixedInto.length; ++i) {
+        if (obj instanceof module.exports.mixedInto[i]) {
           return true;
         }
       }
@@ -78,58 +54,42 @@ const iface = {
       }
 
       const wrapper = utils.wrapperForImpl(obj);
-      for (const isMixedInto of module.exports._mixedIntoPredicates) {
-        if (isMixedInto(wrapper)) {
+      for (let i = 0; i < module.exports.mixedInto.length; ++i) {
+        if (wrapper instanceof module.exports.mixedInto[i]) {
           return true;
         }
       }
     }
     return false;
   },
-  convert(obj, { context = "The provided value" } = {}) {
-    if (module.exports.is(obj)) {
-      return utils.implForWrapper(obj);
-    }
-    throw new TypeError(`${context} is not of type 'HTMLHeadingElement'.`);
-  },
-
   create(constructorArgs, privateData) {
     let obj = Object.create(HTMLHeadingElement.prototype);
-    obj = this.setup(obj, constructorArgs, privateData);
+    this.setup(obj, constructorArgs, privateData);
     return obj;
   },
   createImpl(constructorArgs, privateData) {
     let obj = Object.create(HTMLHeadingElement.prototype);
-    obj = this.setup(obj, constructorArgs, privateData);
+    this.setup(obj, constructorArgs, privateData);
     return utils.implForWrapper(obj);
   },
   _internalSetup(obj) {
     HTMLElement._internalSetup(obj);
+
   },
   setup(obj, constructorArgs, privateData) {
     if (!privateData) privateData = {};
-
     privateData.wrapper = obj;
 
     this._internalSetup(obj);
-    Object.defineProperty(obj, impl, {
-      value: new Impl.implementation(constructorArgs, privateData),
-      writable: false,
-      enumerable: false,
-      configurable: true
-    });
 
+    obj[impl] = new Impl.implementation(constructorArgs, privateData);
     obj[impl][utils.wrapperSymbol] = obj;
-    if (Impl.init) {
-      Impl.init(obj[impl], privateData);
-    }
-    return obj;
   },
   interface: HTMLHeadingElement,
   expose: {
-    Window: { HTMLHeadingElement }
+    Window: { HTMLHeadingElement: HTMLHeadingElement }
   }
-}; // iface
+};
 module.exports = iface;
 
 const Impl = require("../nodes/HTMLHeadingElement-impl.js");

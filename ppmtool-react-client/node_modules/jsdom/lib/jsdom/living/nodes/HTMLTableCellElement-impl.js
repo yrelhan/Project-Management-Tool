@@ -1,44 +1,18 @@
 "use strict";
 
 const HTMLElementImpl = require("./HTMLElement-impl").implementation;
+const idlUtils = require("../generated/utils");
 
-const { asciiLowercase } = require("../helpers/strings");
-const { closest } = require("../helpers/traversal");
+const closest = require("../helpers/traversal").closest;
+const createDOMTokenList = require("../dom-token-list").create;
+const resetDOMTokenList = require("../dom-token-list").reset;
 
-function reflectedAttributeClampedToRange(attrValue, min, max, defaultValue = 0) {
-  if (attrValue === null) {
-    return defaultValue;
-  }
-  // We don't allow hexadecimal numbers here.
-  // eslint-disable-next-line radix
-  const parsed = parseInt(attrValue, 10);
-  if (isNaN(parsed) || parsed < 0) {
-    return defaultValue;
-  }
-  if (parsed < min) {
-    return min;
-  }
-  if (parsed > max) {
-    return max;
-  }
-  return parsed;
-}
-
-class HTMLTableCellElementImpl extends HTMLElementImpl {
-  get colSpan() {
-    return reflectedAttributeClampedToRange(this.getAttribute("colspan"), 1, 1000, 1);
-  }
-
-  set colSpan(V) {
-    this.setAttribute("colspan", String(V));
-  }
-
-  get rowSpan() {
-    return reflectedAttributeClampedToRange(this.getAttribute("rowspan"), 0, 65534, 1);
-  }
-
-  set rowSpan(V) {
-    this.setAttribute("rowspan", String(V));
+class HTMLTableCellImpl extends HTMLElementImpl {
+  get headers() {
+    if (this._headers === undefined) {
+      this._headers = createDOMTokenList(this, "headers");
+    }
+    return this._headers;
   }
 
   get cellIndex() {
@@ -47,29 +21,36 @@ class HTMLTableCellElementImpl extends HTMLElementImpl {
       return -1;
     }
 
-    return tr.cells.indexOf(this);
+    return Array.prototype.indexOf.call(tr.cells, idlUtils.wrapperForImpl(this));
   }
 
-  get scope() {
-    let value = this.getAttribute("scope");
-    if (value === null) {
-      return "";
-    }
-
-    // Enumerated attribute is matched ASCII-case-insensitively.
-    value = asciiLowercase(value);
-    if (value === "row" || value === "col" || value === "rowgroup" || value === "colgroup") {
-      return value;
-    }
-
-    return "";
+  get colSpan() {
+    const value = this.getAttribute("colspan");
+    return value === null ? 1 : value;
   }
 
-  set scope(V) {
-    this.setAttribute("scope", V);
+  set colSpan(V) {
+    this.setAttribute("colspan", String(V));
+  }
+
+  get rowSpan() {
+    const value = this.getAttribute("rowspan");
+    return value === null ? 1 : value;
+  }
+
+  set rowSpan(V) {
+    this.setAttribute("rowspan", String(V));
+  }
+
+  _attrModified(name, value, oldValue) {
+    if (name === "headers" && this._headers) {
+      resetDOMTokenList(this._headers, value);
+    }
+
+    super._attrModified(name, value, oldValue);
   }
 }
 
 module.exports = {
-  implementation: HTMLTableCellElementImpl
+  implementation: HTMLTableCellImpl
 };

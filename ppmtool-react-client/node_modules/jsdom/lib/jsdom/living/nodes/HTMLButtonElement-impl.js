@@ -1,25 +1,16 @@
 "use strict";
+
 const HTMLElementImpl = require("./HTMLElement-impl").implementation;
-const { closest } = require("../helpers/traversal");
-const { isDisabled } = require("../helpers/form-controls");
-const DefaultConstraintValidationImpl =
-  require("../constraint-validation/DefaultConstraintValidation-impl").implementation;
-const { mixin } = require("../../utils");
-const { getLabelsForLabelable } = require("../helpers/form-controls");
+
+const closest = require("../helpers/traversal").closest;
+const isDisabled = require("../helpers/form-controls").isDisabled;
 
 class HTMLButtonElementImpl extends HTMLElementImpl {
-  constructor(args, privateData) {
-    super(args, privateData);
-
-    this._customValidityErrorMessage = "";
-    this._labels = null;
-  }
-
   _activationBehavior() {
-    const { form } = this;
+    const form = this.form;
     if (form) {
       if (this.type === "submit" && !isDisabled(this)) {
-        form._doSubmit();
+        form._dispatchSubmitEvent();
       }
     }
   }
@@ -27,10 +18,6 @@ class HTMLButtonElementImpl extends HTMLElementImpl {
   _getValue() {
     const valueAttr = this.getAttribute("value");
     return valueAttr === null ? "" : valueAttr;
-  }
-
-  get labels() {
-    return getLabelsForLabelable(this);
   }
 
   get form() {
@@ -43,6 +30,7 @@ class HTMLButtonElementImpl extends HTMLElementImpl {
       case "submit":
       case "reset":
       case "button":
+      case "menu":
         return typeAttr;
       default:
         return "submit";
@@ -55,6 +43,7 @@ class HTMLButtonElementImpl extends HTMLElementImpl {
       case "submit":
       case "reset":
       case "button":
+      case "menu":
         this.setAttribute("type", v);
         break;
       default:
@@ -62,13 +51,7 @@ class HTMLButtonElementImpl extends HTMLElementImpl {
         break;
     }
   }
-
-  _barredFromConstraintValidationSpecialization() {
-    return this.type === "reset" || this.type === "button";
-  }
 }
-
-mixin(HTMLButtonElementImpl.prototype, DefaultConstraintValidationImpl.prototype);
 
 module.exports = {
   implementation: HTMLButtonElementImpl

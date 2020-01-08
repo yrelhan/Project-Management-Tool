@@ -1,13 +1,11 @@
 "use strict";
-const { domSymbolTree } = require("./internal-constants");
-const { DOCUMENT_NODE } = require("../node-type");
-const { HTML_NS } = require("./namespaces");
+const domSymbolTree = require("./internal-constants").domSymbolTree;
 
 // All these operate on and return impls, not wrappers!
 
 exports.closest = (e, localName) => {
   while (e) {
-    if (e.localName === localName && e.namespaceURI === HTML_NS) {
+    if (e.localName === localName) {
       return e;
     }
     e = domSymbolTree.parent(e);
@@ -16,38 +14,28 @@ exports.closest = (e, localName) => {
   return null;
 };
 
-exports.isConnected = node => {
-  while (node) {
-    if (node.nodeType === DOCUMENT_NODE) {
-      return true;
-    }
-    node = domSymbolTree.parent(node);
-  }
-  return false;
-};
-
 exports.childrenByHTMLLocalName = (parent, localName) => {
   return domSymbolTree.childrenToArray(parent, { filter(node) {
-    return node._localName === localName && node._namespaceURI === HTML_NS;
+    return node._localName === localName && node._namespaceURI === "http://www.w3.org/1999/xhtml";
   } });
 };
 
 exports.descendantsByHTMLLocalName = (parent, localName) => {
   return domSymbolTree.treeToArray(parent, { filter(node) {
-    return node._localName === localName && node._namespaceURI === HTML_NS && node !== parent;
+    return node._localName === localName && node._namespaceURI === "http://www.w3.org/1999/xhtml" && node !== parent;
   } });
 };
 
 exports.childrenByHTMLLocalNames = (parent, localNamesSet) => {
   return domSymbolTree.childrenToArray(parent, { filter(node) {
-    return localNamesSet.has(node._localName) && node._namespaceURI === HTML_NS;
+    return localNamesSet.has(node._localName) && node._namespaceURI === "http://www.w3.org/1999/xhtml";
   } });
 };
 
 exports.descendantsByHTMLLocalNames = (parent, localNamesSet) => {
   return domSymbolTree.treeToArray(parent, { filter(node) {
     return localNamesSet.has(node._localName) &&
-           node._namespaceURI === HTML_NS &&
+           node._namespaceURI === "http://www.w3.org/1999/xhtml" &&
            node !== parent;
   } });
 };
@@ -55,7 +43,7 @@ exports.descendantsByHTMLLocalNames = (parent, localNamesSet) => {
 exports.firstChildWithHTMLLocalName = (parent, localName) => {
   const iterator = domSymbolTree.childrenIterator(parent);
   for (const child of iterator) {
-    if (child._localName === localName && child._namespaceURI === HTML_NS) {
+    if (child._localName === localName && child._namespaceURI === "http://www.w3.org/1999/xhtml") {
       return child;
     }
   }
@@ -65,7 +53,7 @@ exports.firstChildWithHTMLLocalName = (parent, localName) => {
 exports.firstChildWithHTMLLocalNames = (parent, localNamesSet) => {
   const iterator = domSymbolTree.childrenIterator(parent);
   for (const child of iterator) {
-    if (localNamesSet.has(child._localName) && child._namespaceURI === HTML_NS) {
+    if (localNamesSet.has(child._localName) && child._namespaceURI === "http://www.w3.org/1999/xhtml") {
       return child;
     }
   }
@@ -75,9 +63,10 @@ exports.firstChildWithHTMLLocalNames = (parent, localNamesSet) => {
 exports.firstDescendantWithHTMLLocalName = (parent, localName) => {
   const iterator = domSymbolTree.treeIterator(parent);
   for (const descendant of iterator) {
-    if (descendant._localName === localName && descendant._namespaceURI === HTML_NS) {
+    if (descendant._localName === localName && descendant._namespaceURI === "http://www.w3.org/1999/xhtml") {
       return descendant;
     }
   }
   return null;
 };
+

@@ -1,7 +1,6 @@
 "use strict";
-const { addNwsapi } = require("../helpers/selectors");
-const { HTML_NS } = require("../helpers/namespaces");
-const { mixin, memoizeQuery } = require("../../utils");
+const vm = require("vm");
+const nwmatcher = require("nwmatcher/src/nwmatcher-noqsa");
 const idlUtils = require("../generated/utils");
 const NodeImpl = require("./Node-impl").implementation;
 const ParentNodeImpl = require("./ParentNode-impl").implementation;
@@ -9,17 +8,33 @@ const ChildNodeImpl = require("./ChildNode-impl").implementation;
 const attributes = require("../attributes");
 const namedPropertiesWindow = require("../named-properties-window");
 const NODE_TYPE = require("../node-type");
-const { domToHtml } = require("../../browser/domtohtml");
-const { domSymbolTree } = require("../helpers/internal-constants");
-const DOMException = require("domexception");
-const DOMTokenList = require("../generated/DOMTokenList");
+const domToHtml = require("../../browser/domtohtml").domToHtml;
+const memoizeQuery = require("../../utils").memoizeQuery;
+const clone = require("../node").clone;
+const domSymbolTree = require("../helpers/internal-constants").domSymbolTree;
+const resetDOMTokenList = require("../dom-token-list").reset;
+const DOMException = require("../../web-idl/DOMException");
+const createDOMTokenList = require("../dom-token-list").create;
 const attrGenerated = require("../generated/Attr");
-const NamedNodeMap = require("../generated/NamedNodeMap");
 const validateNames = require("../helpers/validate-names");
-const { asciiLowercase } = require("../helpers/strings");
-const { clone, listOfElementsWithQualifiedName, listOfElementsWithNamespaceAndLocalName,
-  listOfElementsWithClassNames } = require("../node");
+const listOfElementsWithQualifiedName = require("../node").listOfElementsWithQualifiedName;
+const listOfElementsWithNamespaceAndLocalName = require("../node").listOfElementsWithNamespaceAndLocalName;
+const listOfElementsWithClassNames = require("../node").listOfElementsWithClassNames;
+const proxiedWindowEventHandlers = require("../helpers/proxied-window-event-handlers");
 const NonDocumentTypeChildNode = require("./NonDocumentTypeChildNode-impl").implementation;
+
+// nwmatcher gets `document.documentElement` at creation-time, so we have to initialize lazily, since in the initial
+// stages of Document initialization, there is no documentElement present yet.
+function addNwmatcher(parentNode) {
+  const document = parentNode._ownerDocument;
+
+  if (!document._nwmatcher) {
+    document._nwmatcher = nwmatcher({ document });
+    document._nwmatcher.configure({ UNIQUE_ID: false });
+  }
+
+  return document._nwmatcher;
+}
 
 function clearChildNodes(node) {
   for (let child = domSymbolTree.firstChild(node); child; child = domSymbolTree.firstChild(node)) {
@@ -35,10 +50,12 @@ function setInnerHTML(document, node, html) {
     clearChildNodes(node);
   }
 
-  if (node.nodeName === "#document") {
-    document._htmlToDom.appendToDocument(html, node);
-  } else {
-    document._htmlToDom.appendToNode(html, node);
+  if (html !== "") {
+    if (node.nodeName === "#document") {
+      document._htmlToDom.appendHtmlToDocument(html, node);
+    } else {
+      document._htmlToDom.appendHtmlToElement(html, node);
+    }
   }
 }
 
@@ -76,16 +93,10 @@ class ElementImpl extends NodeImpl {
     this.scrollTop = 0;
     this.scrollLeft = 0;
 
-    this._namespaceURI = privateData.namespace || null;
+    this._namespaceURI = null;
     this._prefix = null;
     this._localName = privateData.localName;
-
-    this._attributeList = [];
-    // Used for caching.
-    this._attributesByNameMap = new Map();
-    this._attributes = NamedNodeMap.createImpl([], {
-      element: this
-    });
+    this._attributes = attributes.createNamedNodeMap(this);
   }
 
   _attach() {
@@ -120,9 +131,78 @@ class ElementImpl extends NodeImpl {
       attachId(value, this, doc);
     }
 
+    const w = this._ownerDocument._global;
+
+    // TODO event handlers:
+    // The correct way to do this is lazy, and a bit more complicated; see
+    // https://html.spec.whatwg.org/multipage/webappapis.html#event-handler-content-attributes
+    // It would only be possible if we had proper getters/setters for every event handler, which we don't right now.
+    if (name.length > 2 && name[0] === "o" && name[1] === "n") {
+      // If this document does not have a window, set IDL attribute to null
+      // step 2: https://html.spec.whatwg.org/multipage/webappapis.html#getting-the-current-value-of-the-event-handler
+      if (value && w) {
+        const self = proxiedWindowEventHandlers.has(name) && this._localName === "body" ? w : this;
+        const vmOptions = { filename: this._ownerDocument.URL, displayErrors: false };
+
+        // The handler code probably refers to functions declared globally on the window, so we need to run it in
+        // that context. In fact, it's worse; see
+        // https://code.google.com/p/chromium/codesearch#chromium/src/third_party/WebKit/Source/bindings/core/v8/V8LazyEventListener.cpp
+        // plus the spec, which show how multiple nested scopes are technically required. We won't implement that
+        // until someone asks for it, though.
+
+        // https://html.spec.whatwg.org/multipage/webappapis.html#the-event-handler-processing-algorithm
+
+        if (name === "onerror" && self === w) {
+          // https://html.spec.whatwg.org/multipage/webappapis.html#getting-the-current-value-of-the-event-handler
+          // step 10
+
+          self[name] = function (event, source, lineno, colno, error) {
+            w.__tempEventHandlerThis = this;
+            w.__tempEventHandlerEvent = event;
+            w.__tempEventHandlerSource = source;
+            w.__tempEventHandlerLineno = lineno;
+            w.__tempEventHandlerColno = colno;
+            w.__tempEventHandlerError = error;
+
+            try {
+              return vm.runInContext(`
+                (function (event, source, lineno, colno, error) {
+                  ${value}
+                }).call(__tempEventHandlerThis, __tempEventHandlerEvent, __tempEventHandlerSource,
+                        __tempEventHandlerLineno, __tempEventHandlerColno, __tempEventHandlerError)`, w, vmOptions);
+            } finally {
+              delete w.__tempEventHandlerThis;
+              delete w.__tempEventHandlerEvent;
+              delete w.__tempEventHandlerSource;
+              delete w.__tempEventHandlerLineno;
+              delete w.__tempEventHandlerColno;
+              delete w.__tempEventHandlerError;
+            }
+          };
+        } else {
+          self[name] = function (event) {
+            w.__tempEventHandlerThis = this;
+            w.__tempEventHandlerEvent = event;
+
+            try {
+              return vm.runInContext(`
+                (function (event) {
+                  ${value}
+                }).call(__tempEventHandlerThis, __tempEventHandlerEvent)`, w, vmOptions);
+            } finally {
+              delete w.__tempEventHandlerThis;
+              delete w.__tempEventHandlerEvent;
+            }
+          };
+        }
+      } else {
+        this[name] = null;
+      }
+    }
+
     // update classList
-    if (name === "class" && this._classList !== undefined) {
-      this._classList.attrModified();
+    if (name === "class") {
+      resetDOMTokenList(this.classList, value);
     }
   }
 
@@ -140,7 +220,7 @@ class ElementImpl extends NodeImpl {
   }
   get tagName() {
     let qualifiedName = this._qualifiedName;
-    if (this.namespaceURI === HTML_NS && this._ownerDocument._parsingMode === "html") {
+    if (this.namespaceURI === "http://www.w3.org/1999/xhtml" && this._ownerDocument._parsingMode === "html") {
       qualifiedName = qualifiedName.toUpperCase();
     }
     return qualifiedName;
@@ -168,16 +248,17 @@ class ElementImpl extends NodeImpl {
 
     let contextElement;
     if (parent.nodeType === NODE_TYPE.DOCUMENT_NODE) {
-      throw new DOMException("Modifications are not allowed for this document", "NoModificationAllowedError");
+      throw new DOMException(DOMException.NO_MODIFICATION_ALLOWED_ERR,
+                                  "Modifications are not allowed for this document");
     } else if (parent.nodeType === NODE_TYPE.DOCUMENT_FRAGMENT_NODE) {
-      contextElement = document.createElementNS(HTML_NS, "body");
+      contextElement = document.createElementNS("http://www.w3.org/1999/xhtml", "body");
     } else if (parent.nodeType === NODE_TYPE.ELEMENT_NODE) {
-      contextElement = clone(parent, undefined, false);
+      contextElement = clone(this._core, parent, undefined, false);
     } else {
       throw new TypeError("This should never happen");
     }
 
-    document._htmlToDom.appendToNode(html, contextElement);
+    document._htmlToDom.appendHtmlToElement(html, contextElement);
 
     while (contextElement.firstChild) {
       parent.insertBefore(contextElement.firstChild, this);
@@ -187,8 +268,7 @@ class ElementImpl extends NodeImpl {
   }
 
   get innerHTML() {
-    // TODO is this necessary? I would have thought this would be handled at a different level.
-    const { tagName } = this;
+    const tagName = this.tagName;
     if (tagName === "SCRIPT" || tagName === "STYLE") {
       const type = this.getAttribute("type");
       if (!type || /^text\//i.test(type) || /\/javascript$/i.test(type)) {
@@ -214,10 +294,7 @@ class ElementImpl extends NodeImpl {
 
   get classList() {
     if (this._classList === undefined) {
-      this._classList = DOMTokenList.createImpl([], {
-        element: this,
-        attributeLocalName: "class"
-      });
+      this._classList = createDOMTokenList(this, "class");
     }
     return this._classList;
   }
@@ -231,26 +308,18 @@ class ElementImpl extends NodeImpl {
   }
 
   getAttribute(name) {
-    const attr = attributes.getAttributeByName(this, name);
-    if (!attr) {
-      return null;
-    }
-    return attr._value;
+    return attributes.getAttributeValue(this, name);
   }
 
   getAttributeNS(namespace, localName) {
-    const attr = attributes.getAttributeByNameNS(this, namespace, localName);
-    if (!attr) {
-      return null;
-    }
-    return attr._value;
+    return attributes.getAttributeValueByNameNS(this, namespace, localName);
   }
 
   setAttribute(name, value) {
     validateNames.name(name);
 
-    if (this._namespaceURI === HTML_NS && this._ownerDocument._parsingMode === "html") {
-      name = asciiLowercase(name);
+    if (this._namespaceURI === "http://www.w3.org/1999/xhtml" && this._ownerDocument._parsingMode === "html") {
+      name = name.toLowerCase();
     }
 
     const attribute = attributes.getAttributeByName(this, name);
@@ -279,8 +348,8 @@ class ElementImpl extends NodeImpl {
   }
 
   hasAttribute(name) {
-    if (this._namespaceURI === HTML_NS && this._ownerDocument._parsingMode === "html") {
-      name = asciiLowercase(name);
+    if (this._namespaceURI === "http://www.w3.org/1999/xhtml" && this._ownerDocument._parsingMode === "html") {
+      name = name.toLowerCase();
     }
 
     return attributes.hasAttributeByName(this, name);
@@ -303,16 +372,28 @@ class ElementImpl extends NodeImpl {
   }
 
   setAttributeNode(attr) {
+    if (!attrGenerated.isImpl(attr)) {
+      throw new TypeError("First argument to Element.prototype.setAttributeNode must be an Attr");
+    }
+
     return attributes.setAttribute(this, attr);
   }
 
   setAttributeNodeNS(attr) {
+    if (!attrGenerated.isImpl(attr)) {
+      throw new TypeError("First argument to Element.prototype.setAttributeNodeNS must be an Attr");
+    }
+
     return attributes.setAttribute(this, attr);
   }
 
   removeAttributeNode(attr) {
+    if (!attrGenerated.isImpl(attr)) {
+      throw new TypeError("First argument to Element.prototype.removeAttributeNode must be an Attr");
+    }
+
     if (!attributes.hasAttribute(this, attr)) {
-      throw new DOMException("Tried to remove an attribute that was not present", "NotFoundError");
+      throw new DOMException(DOMException.NOT_FOUND_ERR, "Tried to remove an attribute that was not present");
     }
 
     attributes.removeAttribute(this, attr);
@@ -369,8 +450,8 @@ class ElementImpl extends NodeImpl {
       case "afterend": {
         context = this.parentNode;
         if (context === null || context.nodeType === NODE_TYPE.DOCUMENT_NODE) {
-          throw new DOMException("Cannot insert HTML adjacent to " +
-            "parent-less nodes or children of document nodes.", "NoModificationAllowedError");
+          throw new DOMException(DOMException.NO_MODIFICATION_ALLOWED_ERR, "Cannot insert HTML adjacent to " +
+            "parent-less nodes or children of document nodes.");
         }
         break;
       }
@@ -380,8 +461,8 @@ class ElementImpl extends NodeImpl {
         break;
       }
       default: {
-        throw new DOMException("Must provide one of \"beforebegin\", \"afterend\", " +
-          "\"afterbegin\", or \"beforeend\".", "SyntaxError");
+        throw new DOMException(DOMException.SYNTAX_ERR, "Must provide one of \"beforebegin\", \"afterend\", " +
+          "\"afterbegin\", or \"beforeend\".");
       }
     }
 
@@ -408,16 +489,11 @@ class ElementImpl extends NodeImpl {
       }
     }
   }
-
-  closest(selectors) {
-    const matcher = addNwsapi(this);
-    return matcher.closest(selectors, idlUtils.wrapperForImpl(this));
-  }
 }
 
-mixin(ElementImpl.prototype, NonDocumentTypeChildNode.prototype);
-mixin(ElementImpl.prototype, ParentNodeImpl.prototype);
-mixin(ElementImpl.prototype, ChildNodeImpl.prototype);
+idlUtils.mixin(ElementImpl.prototype, NonDocumentTypeChildNode.prototype);
+idlUtils.mixin(ElementImpl.prototype, ParentNodeImpl.prototype);
+idlUtils.mixin(ElementImpl.prototype, ChildNodeImpl.prototype);
 
 ElementImpl.prototype.getElementsByTagName = memoizeQuery(function (qualifiedName) {
   return listOfElementsWithQualifiedName(qualifiedName, this);
@@ -432,9 +508,13 @@ ElementImpl.prototype.getElementsByClassName = memoizeQuery(function (classNames
 });
 
 ElementImpl.prototype.matches = memoizeQuery(function (selectors) {
-  const matcher = addNwsapi(this);
+  const matcher = addNwmatcher(this);
 
-  return matcher.match(selectors, idlUtils.wrapperForImpl(this));
+  try {
+    return matcher.match(idlUtils.wrapperForImpl(this), selectors);
+  } catch (e) {
+    throw new DOMException(DOMException.SYNTAX_ERR, e.message);
+  }
 });
 
 ElementImpl.prototype.webkitMatchesSelector = ElementImpl.prototype.matches;

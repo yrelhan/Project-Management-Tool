@@ -9,14 +9,12 @@ const escodegen = require("escodegen");
 // From ES spec table of contents. Also, don't forget the Annex B additions.
 // If someone feels ambitious maybe make this into an npm package.
 const builtInConsts = ["Infinity", "NaN", "undefined"];
-const otherBuiltIns = [
-  "isFinite", "isNaN", "parseFloat", "parseInt", "decodeURI", "decodeURIComponent",
+const otherBuiltIns = ["eval", "isFinite", "isNaN", "parseFloat", "parseInt", "decodeURI", "decodeURIComponent",
   "encodeURI", "encodeURIComponent", "Array", "ArrayBuffer", "Boolean", "DataView", "Date", "Error", "EvalError",
   "Float32Array", "Float64Array", "Function", "Int8Array", "Int16Array", "Int32Array", "Map", "Number", "Object",
   "Proxy", "Promise", "RangeError", "ReferenceError", "RegExp", "Set", "String", "Symbol", "SyntaxError", "TypeError",
   "Uint8Array", "Uint8ClampedArray", "Uint16Array", "Uint32Array", "URIError", "WeakMap", "WeakSet", "JSON", "Math",
-  "Reflect", "escape", "unescape"
-];
+  "Reflect", "escape", "unescape"];
 
 exports.createContext = function (sandbox) {
   Object.defineProperty(sandbox, "__isVMShimContext", {
@@ -43,15 +41,6 @@ exports.createContext = function (sandbox) {
       enumerable: false
     });
   }
-
-  Object.defineProperty(sandbox, "eval", {
-    value(code) {
-      return exports.runInContext(code, sandbox);
-    },
-    writable: true,
-    configurable: true,
-    enumerable: false
-  });
 };
 
 exports.isContext = function (sandbox) {
@@ -84,13 +73,14 @@ exports.runInContext = function (code, contextifiedSandbox, options) {
 
   const globals = findGlobals(ast);
   for (let i = 0; i < globals.length; ++i) {
-    if (globals[i].name === "window" || globals[i].name === "this") {
+    if (globals[i].name === "window") {
       continue;
     }
 
-    const { nodes } = globals[i];
+    const nodes = globals[i].nodes;
     for (let j = 0; j < nodes.length; ++j) {
-      const { type, name } = nodes[j];
+      const type = nodes[j].type;
+      const name = nodes[j].name;
       nodes[j].type = "MemberExpression";
       nodes[j].property = { name, type };
       nodes[j].computed = false;
@@ -112,15 +102,4 @@ exports.runInContext = function (code, contextifiedSandbox, options) {
   const suffix = options.filename !== undefined ? "\n//# sourceURL=" + options.filename : "";
 
   return Function("window", rewrittenCode + suffix).bind(contextifiedSandbox)(contextifiedSandbox);
-};
-
-exports.Script = class VMShimScript {
-  constructor(code, options) {
-    this._code = code;
-    this._options = options;
-  }
-
-  runInContext(sandbox, options) {
-    return exports.runInContext(this._code, sandbox, Object.assign({}, this._options, options));
-  }
 };

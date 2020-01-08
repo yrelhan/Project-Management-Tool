@@ -1,35 +1,14 @@
-'use strict';
-
-Object.defineProperty(exports, '__esModule', {
-  value: true
-});
-exports.default = void 0;
-
-function _defineProperty(obj, key, value) {
-  if (key in obj) {
-    Object.defineProperty(obj, key, {
-      value: value,
-      enumerable: true,
-      configurable: true,
-      writable: true
-    });
-  } else {
-    obj[key] = value;
-  }
-  return obj;
-}
-
-/**
- * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- */
+"use strict"; /**
+               * Copyright (c) 2014-present, Facebook, Inc. All rights reserved.
+               *
+               * This source code is licensed under the BSD-style license found in the
+               * LICENSE file in the root directory of this source tree. An additional grant
+               * of patent rights can be found in the PATENTS file in the same directory.
+               *
+               */
 // This file is a heavily modified fork of Jasmine. Original license:
-
 /*
-Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+Copyright (c) 2008-2016 Pivotal Labs
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
@@ -50,72 +29,53 @@ LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
-class CallTracker {
-  constructor() {
-    _defineProperty(this, 'track', void 0);
 
-    _defineProperty(this, 'any', void 0);
+/* eslint-disable sort-keys */
 
-    _defineProperty(this, 'count', void 0);
+function CallTracker() {
+  let calls = [];
 
-    _defineProperty(this, 'argsFor', void 0);
+  this.track = function (context) {
+    calls.push(context);
+  };
 
-    _defineProperty(this, 'all', void 0);
+  this.any = function () {
+    return !!calls.length;
+  };
 
-    _defineProperty(this, 'allArgs', void 0);
+  this.count = function () {
+    return calls.length;
+  };
 
-    _defineProperty(this, 'first', void 0);
+  this.argsFor = function (index) {
+    const call = calls[index];
+    return call ? call.args : [];
+  };
 
-    _defineProperty(this, 'mostRecent', void 0);
+  this.all = function () {
+    return calls;
+  };
 
-    _defineProperty(this, 'reset', void 0);
+  this.allArgs = function () {
+    const callArgs = [];
+    for (let i = 0; i < calls.length; i++) {
+      callArgs.push(calls[i].args);
+    }
 
-    let calls = [];
+    return callArgs;
+  };
 
-    this.track = function(context) {
-      calls.push(context);
-    };
+  this.first = function () {
+    return calls[0];
+  };
 
-    this.any = function() {
-      return !!calls.length;
-    };
+  this.mostRecent = function () {
+    return calls[calls.length - 1];
+  };
 
-    this.count = function() {
-      return calls.length;
-    };
-
-    this.argsFor = function(index) {
-      const call = calls[index];
-      return call ? call.args : [];
-    };
-
-    this.all = function() {
-      return calls;
-    };
-
-    this.allArgs = function() {
-      const callArgs = [];
-
-      for (let i = 0; i < calls.length; i++) {
-        callArgs.push(calls[i].args);
-      }
-
-      return callArgs;
-    };
-
-    this.first = function() {
-      return calls[0];
-    };
-
-    this.mostRecent = function() {
-      return calls[calls.length - 1];
-    };
-
-    this.reset = function() {
-      calls = [];
-    };
-  }
+  this.reset = function () {
+    calls = [];
+  };
 }
 
-var _default = CallTracker;
-exports.default = _default;
+module.exports = CallTracker;

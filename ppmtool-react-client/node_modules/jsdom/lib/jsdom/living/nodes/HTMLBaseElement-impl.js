@@ -1,16 +1,16 @@
 "use strict";
-const whatwgURL = require("whatwg-url");
 const HTMLElementImpl = require("./HTMLElement-impl").implementation;
-const { fallbackBaseURL } = require("../helpers/document-base-url");
+const whatwgURL = require("whatwg-url");
+const fallbackBaseURL = require("../helpers/document-base-url").fallbackBaseURL;
 
-class HTMLBaseElementImpl extends HTMLElementImpl {
+class HTMLBaseElement extends HTMLElementImpl {
   get href() {
     const document = this._ownerDocument;
 
     const url = this.hasAttribute("href") ? this.getAttribute("href") : "";
     const parsed = whatwgURL.parseURL(url, { baseURL: fallbackBaseURL(document) });
 
-    if (parsed === null) {
+    if (parsed === "failure") {
       return url;
     }
 
@@ -23,5 +23,5 @@ class HTMLBaseElementImpl extends HTMLElementImpl {
 }
 
 module.exports = {
-  implementation: HTMLBaseElementImpl
+  implementation: HTMLBaseElement
 };

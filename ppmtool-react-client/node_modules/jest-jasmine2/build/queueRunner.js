@@ -1,44 +1,39 @@
-'use strict';
+'use strict'; /**
+               * Copyright (c) 2014-present, Facebook, Inc. All rights reserved.
+               *
+               * This source code is licensed under the BSD-style license found in the
+               * LICENSE file in the root directory of this source tree. An additional grant
+               * of patent rights can be found in the PATENTS file in the same directory.
+               *
+               * 
+               */
 
-Object.defineProperty(exports, '__esModule', {
-  value: true
-});
-exports.default = queueRunner;
+const once = require('once');
+const pMap = require('p-map');
+const pTimeout = require('./p-timeout');
 
-var _PCancelable = _interopRequireDefault(require('./PCancelable'));
 
-var _pTimeout = _interopRequireDefault(require('./pTimeout'));
 
-function _interopRequireDefault(obj) {
-  return obj && obj.__esModule ? obj : {default: obj};
-}
 
-var Symbol = global['jest-symbol-do-not-touch'] || global.Symbol;
-var Symbol = global['jest-symbol-do-not-touch'] || global.Symbol;
-var Promise = global[Symbol.for('jest-native-promise')] || global.Promise;
+
+
+
+
+
+
+
+
+
+
 
 function queueRunner(options) {
-  const token = new _PCancelable.default((onCancel, resolve) => {
-    onCancel(resolve);
-  });
-
-  const mapper = ({fn, timeout, initError = new Error()}) => {
-    let promise = new Promise(resolve => {
-      const next = function next(...args) {
-        const err = args[0];
-
-        if (err) {
-          options.fail.apply(null, args);
-        }
-
+  const mapper = (_ref) => {let fn = _ref.fn,timeout = _ref.timeout;
+    const promise = new Promise(resolve => {
+      const next = once(resolve);
+      next.fail = function () {
+        options.fail.apply(null, arguments);
         resolve();
       };
-
-      next.fail = function(...args) {
-        options.fail.apply(null, args);
-        resolve();
-      };
-
       try {
         fn.call(options.userContext, next);
       } catch (e) {
@@ -46,36 +41,24 @@ function queueRunner(options) {
         resolve();
       }
     });
-    promise = Promise.race([promise, token]);
-
     if (!timeout) {
       return promise;
     }
+    return pTimeout(
+    promise,
+    timeout(),
+    options.clearTimeout,
+    options.setTimeout,
+    () => {
+      const error = new Error(
+      'Timeout - Async callback was not invoked within timeout specified ' +
+      'by jasmine.DEFAULT_TIMEOUT_INTERVAL.');
 
-    const timeoutMs = timeout();
-    return (0, _pTimeout.default)(
-      promise,
-      timeoutMs,
-      options.clearTimeout,
-      options.setTimeout,
-      () => {
-        initError.message =
-          'Timeout - Async callback was not invoked within the ' +
-          timeoutMs +
-          'ms timeout specified by jest.setTimeout.';
-        initError.stack = initError.message + initError.stack;
-        options.onException(initError);
-      }
-    );
-  };
+      options.onException(error);
+    });
 
-  const result = options.queueableFns.reduce(
-    (promise, fn) => promise.then(() => mapper(fn)),
-    Promise.resolve()
-  );
-  return {
-    cancel: token.cancel.bind(token),
-    catch: result.catch.bind(result),
-    then: result.then.bind(result)
   };
+  return pMap(options.queueableFns, mapper, { concurrency: 1 });
 }
+
+module.exports = queueRunner;

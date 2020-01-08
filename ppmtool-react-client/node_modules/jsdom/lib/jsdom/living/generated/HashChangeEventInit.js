@@ -3,44 +3,36 @@
 const conversions = require("webidl-conversions");
 const utils = require("./utils.js");
 
-const EventInit = require("./EventInit.js");
+const EventInit = require("./EventInit");
 
 module.exports = {
-  convertInherit(obj, ret, { context = "The provided value" } = {}) {
-    EventInit.convertInherit(obj, ret, { context });
+  convertInherit(obj, ret) {
+    EventInit.convertInherit(obj, ret);
+    let key, value;
 
-    {
-      const key = "newURL";
-      let value = obj === undefined || obj === null ? undefined : obj[key];
-      if (value !== undefined) {
-        value = conversions["USVString"](value, { context: context + " has member newURL that" });
-
-        ret[key] = value;
-      } else {
-        ret[key] = "";
-      }
+    key = "newURL";
+    value = obj === undefined || obj === null ? undefined : obj[key];
+    if (value !== undefined) {
+      ret[key] = conversions["DOMString"](value);
     }
 
-    {
-      const key = "oldURL";
-      let value = obj === undefined || obj === null ? undefined : obj[key];
-      if (value !== undefined) {
-        value = conversions["USVString"](value, { context: context + " has member oldURL that" });
-
-        ret[key] = value;
-      } else {
-        ret[key] = "";
-      }
+    key = "oldURL";
+    value = obj === undefined || obj === null ? undefined : obj[key];
+    if (value !== undefined) {
+      ret[key] = conversions["DOMString"](value);
     }
   },
 
-  convert(obj, { context = "The provided value" } = {}) {
-    if (obj !== undefined && typeof obj !== "object" && typeof obj !== "function") {
-      throw new TypeError(`${context} is not an object.`);
+  convert(obj) {
+    if (obj !== undefined && typeof obj !== "object") {
+      throw new TypeError("Dictionary has to be an object");
+    }
+    if (obj instanceof Date || obj instanceof RegExp) {
+      throw new TypeError("Dictionary may not be a Date or RegExp object");
     }
 
     const ret = Object.create(null);
-    module.exports.convertInherit(obj, ret, { context });
+    module.exports.convertInherit(obj, ret);
     return ret;
   }
 };

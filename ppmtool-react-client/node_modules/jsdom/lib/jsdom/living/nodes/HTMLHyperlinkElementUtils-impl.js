@@ -1,6 +1,6 @@
 "use strict";
 const whatwgURL = require("whatwg-url");
-const { parseURLToResultingURLRecord } = require("../helpers/document-base-url");
+const parseURLToResultingURLRecord = require("../helpers/document-base-url").parseURLToResultingURLRecord;
 
 exports.implementation = class HTMLHyperlinkElementUtilsImpl {
   _htmlHyperlinkElementUtilsSetup() {
@@ -12,8 +12,8 @@ exports.implementation = class HTMLHyperlinkElementUtilsImpl {
   }
 
   get href() {
-    reinitializeURL(this);
-    const { url } = this;
+    setTheURL(this);
+    const url = this.url;
 
     if (url === null) {
       const href = this.getAttribute("href");
@@ -28,17 +28,17 @@ exports.implementation = class HTMLHyperlinkElementUtilsImpl {
   }
 
   get origin() {
-    reinitializeURL(this);
+    setTheURL(this);
 
     if (this.url === null) {
       return "";
     }
 
-    return whatwgURL.serializeURLOrigin(this.url);
+    return whatwgURL.serializeURLToUnicodeOrigin(this.url);
   }
 
   get protocol() {
-    reinitializeURL(this);
+    setTheURL(this);
 
     if (this.url === null) {
       return ":";
@@ -48,8 +48,6 @@ exports.implementation = class HTMLHyperlinkElementUtilsImpl {
   }
 
   set protocol(v) {
-    reinitializeURL(this);
-
     if (this.url === null) {
       return;
     }
@@ -59,7 +57,7 @@ exports.implementation = class HTMLHyperlinkElementUtilsImpl {
   }
 
   get username() {
-    reinitializeURL(this);
+    setTheURL(this);
 
     if (this.url === null) {
       return "";
@@ -69,10 +67,9 @@ exports.implementation = class HTMLHyperlinkElementUtilsImpl {
   }
 
   set username(v) {
-    reinitializeURL(this);
-    const { url } = this;
+    const url = this.url;
 
-    if (url === null || url.host === null || url.host === "" || url.cannotBeABaseURL || url.scheme === "file") {
+    if (url === null || url.host === null || url.cannotBeABaseURL) {
       return;
     }
 
@@ -81,10 +78,10 @@ exports.implementation = class HTMLHyperlinkElementUtilsImpl {
   }
 
   get password() {
-    reinitializeURL(this);
-    const { url } = this;
+    setTheURL(this);
+    const url = this.url;
 
-    if (url === null) {
+    if (url === null || url.password === null) {
       return "";
     }
 
@@ -92,10 +89,9 @@ exports.implementation = class HTMLHyperlinkElementUtilsImpl {
   }
 
   set password(v) {
-    reinitializeURL(this);
-    const { url } = this;
+    const url = this.url;
 
-    if (url === null || url.host === null || url.host === "" || url.cannotBeABaseURL || url.scheme === "file") {
+    if (url === null || url.host === null || url.cannotBeABaseURL) {
       return;
     }
 
@@ -104,8 +100,8 @@ exports.implementation = class HTMLHyperlinkElementUtilsImpl {
   }
 
   get host() {
-    reinitializeURL(this);
-    const { url } = this;
+    setTheURL(this);
+    const url = this.url;
 
     if (url === null || url.host === null) {
       return "";
@@ -119,8 +115,8 @@ exports.implementation = class HTMLHyperlinkElementUtilsImpl {
   }
 
   set host(v) {
-    reinitializeURL(this);
-    const { url } = this;
+    setTheURL(this);
+    const url = this.url;
 
     if (url === null || url.cannotBeABaseURL) {
       return;
@@ -131,8 +127,8 @@ exports.implementation = class HTMLHyperlinkElementUtilsImpl {
   }
 
   get hostname() {
-    reinitializeURL(this);
-    const { url } = this;
+    setTheURL(this);
+    const url = this.url;
 
     if (url === null || url.host === null) {
       return "";
@@ -142,8 +138,8 @@ exports.implementation = class HTMLHyperlinkElementUtilsImpl {
   }
 
   set hostname(v) {
-    reinitializeURL(this);
-    const { url } = this;
+    setTheURL(this);
+    const url = this.url;
 
     if (url === null || url.cannotBeABaseURL) {
       return;
@@ -154,8 +150,8 @@ exports.implementation = class HTMLHyperlinkElementUtilsImpl {
   }
 
   get port() {
-    reinitializeURL(this);
-    const { url } = this;
+    setTheURL(this);
+    const url = this.url;
 
     if (url === null || url.port === null) {
       return "";
@@ -165,24 +161,20 @@ exports.implementation = class HTMLHyperlinkElementUtilsImpl {
   }
 
   set port(v) {
-    reinitializeURL(this);
-    const { url } = this;
+    setTheURL(this);
+    const url = this.url;
 
-    if (url === null || url.host === null || url.host === "" || url.cannotBeABaseURL || url.scheme === "file") {
+    if (url === null || url.host === null || url.cannotBeABaseURL || url.scheme === "file") {
       return;
     }
 
-    if (v === "") {
-      url.port = null;
-    } else {
-      whatwgURL.basicURLParse(v, { url, stateOverride: "port" });
-    }
+    whatwgURL.basicURLParse(v, { url, stateOverride: "port" });
     updateHref(this);
   }
 
   get pathname() {
-    reinitializeURL(this);
-    const { url } = this;
+    setTheURL(this);
+    const url = this.url;
 
     if (url === null) {
       return "";
@@ -196,8 +188,8 @@ exports.implementation = class HTMLHyperlinkElementUtilsImpl {
   }
 
   set pathname(v) {
-    reinitializeURL(this);
-    const { url } = this;
+    setTheURL(this);
+    const url = this.url;
 
     if (url === null || url.cannotBeABaseURL) {
       return;
@@ -205,12 +197,11 @@ exports.implementation = class HTMLHyperlinkElementUtilsImpl {
 
     url.path = [];
     whatwgURL.basicURLParse(v, { url, stateOverride: "path start" });
-    updateHref(this);
   }
 
   get search() {
-    reinitializeURL(this);
-    const { url } = this;
+    setTheURL(this);
+    const url = this.url;
 
     if (url === null || url.query === null || url.query === "") {
       return "";
@@ -220,8 +211,8 @@ exports.implementation = class HTMLHyperlinkElementUtilsImpl {
   }
 
   set search(v) {
-    reinitializeURL(this);
-    const { url } = this;
+    setTheURL(this);
+    const url = this.url;
 
     if (url === null) {
       return;
@@ -232,18 +223,14 @@ exports.implementation = class HTMLHyperlinkElementUtilsImpl {
     } else {
       const input = v[0] === "?" ? v.substring(1) : v;
       url.query = "";
-      whatwgURL.basicURLParse(input, {
-        url,
-        stateOverride: "query",
-        encodingOverride: this._ownerDocument.charset
-      });
+      whatwgURL.basicURLParse(input, { url, stateOverride: "query" });
     }
     updateHref(this);
   }
 
   get hash() {
-    reinitializeURL(this);
-    const { url } = this;
+    setTheURL(this);
+    const url = this.url;
 
     if (url === null || url.fragment === null || url.fragment === "") {
       return "";
@@ -253,10 +240,10 @@ exports.implementation = class HTMLHyperlinkElementUtilsImpl {
   }
 
   set hash(v) {
-    reinitializeURL(this);
-    const { url } = this;
+    setTheURL(this);
+    const url = this.url;
 
-    if (url === null) {
+    if (url === null || url.scheme === "javascript") {
       return;
     }
 
@@ -271,14 +258,6 @@ exports.implementation = class HTMLHyperlinkElementUtilsImpl {
   }
 };
 
-function reinitializeURL(hheu) {
-  if (hheu.url !== null && hheu.url.scheme === "blob" && hheu.url.cannotBeABaseURL) {
-    return;
-  }
-
-  setTheURL(hheu);
-}
-
 function setTheURL(hheu) {
   const href = hheu.getAttribute("href");
   if (href === null) {
@@ -288,7 +267,7 @@ function setTheURL(hheu) {
 
   const parsed = parseURLToResultingURLRecord(href, hheu._ownerDocument);
 
-  hheu.url = parsed === null ? null : parsed;
+  hheu.url = parsed === "failure" ? null : parsed;
 }
 
 function updateHref(hheu) {

@@ -2,407 +2,194 @@
 
 const conversions = require("webidl-conversions");
 const utils = require("./utils.js");
-
 const impl = utils.implSymbol;
 
 function WindowEventHandlers() {
   throw new TypeError("Illegal constructor");
 }
 
-Object.defineProperty(WindowEventHandlers, "prototype", {
-  value: WindowEventHandlers.prototype,
-  writable: false,
-  enumerable: false,
-  configurable: false
-});
 
+WindowEventHandlers.prototype.toString = function () {
+  if (this === WindowEventHandlers.prototype) {
+    return "[object WindowEventHandlersPrototype]";
+  }
+  return this[impl].toString();
+};
 Object.defineProperty(WindowEventHandlers.prototype, "onafterprint", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return utils.tryWrapperForImpl(this[impl]["onafterprint"]);
+    return utils.tryWrapperForImpl(this[impl].onafterprint);
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = utils.tryImplForWrapper(V);
-
-    this[impl]["onafterprint"] = V;
+    this[impl].onafterprint = utils.tryImplForWrapper(V);
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(WindowEventHandlers.prototype, "onbeforeprint", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return utils.tryWrapperForImpl(this[impl]["onbeforeprint"]);
+    return utils.tryWrapperForImpl(this[impl].onbeforeprint);
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = utils.tryImplForWrapper(V);
-
-    this[impl]["onbeforeprint"] = V;
+    this[impl].onbeforeprint = utils.tryImplForWrapper(V);
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(WindowEventHandlers.prototype, "onbeforeunload", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return utils.tryWrapperForImpl(this[impl]["onbeforeunload"]);
+    return utils.tryWrapperForImpl(this[impl].onbeforeunload);
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = utils.tryImplForWrapper(V);
-
-    this[impl]["onbeforeunload"] = V;
+    this[impl].onbeforeunload = utils.tryImplForWrapper(V);
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(WindowEventHandlers.prototype, "onhashchange", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return utils.tryWrapperForImpl(this[impl]["onhashchange"]);
+    return utils.tryWrapperForImpl(this[impl].onhashchange);
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = utils.tryImplForWrapper(V);
-
-    this[impl]["onhashchange"] = V;
+    this[impl].onhashchange = utils.tryImplForWrapper(V);
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(WindowEventHandlers.prototype, "onlanguagechange", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return utils.tryWrapperForImpl(this[impl]["onlanguagechange"]);
+    return utils.tryWrapperForImpl(this[impl].onlanguagechange);
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = utils.tryImplForWrapper(V);
-
-    this[impl]["onlanguagechange"] = V;
+    this[impl].onlanguagechange = utils.tryImplForWrapper(V);
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(WindowEventHandlers.prototype, "onmessage", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return utils.tryWrapperForImpl(this[impl]["onmessage"]);
+    return utils.tryWrapperForImpl(this[impl].onmessage);
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = utils.tryImplForWrapper(V);
-
-    this[impl]["onmessage"] = V;
+    this[impl].onmessage = utils.tryImplForWrapper(V);
   },
-
-  enumerable: true,
-  configurable: true
-});
-
-Object.defineProperty(WindowEventHandlers.prototype, "onmessageerror", {
-  get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return utils.tryWrapperForImpl(this[impl]["onmessageerror"]);
-  },
-
-  set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = utils.tryImplForWrapper(V);
-
-    this[impl]["onmessageerror"] = V;
-  },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(WindowEventHandlers.prototype, "onoffline", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return utils.tryWrapperForImpl(this[impl]["onoffline"]);
+    return utils.tryWrapperForImpl(this[impl].onoffline);
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = utils.tryImplForWrapper(V);
-
-    this[impl]["onoffline"] = V;
+    this[impl].onoffline = utils.tryImplForWrapper(V);
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(WindowEventHandlers.prototype, "ononline", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return utils.tryWrapperForImpl(this[impl]["ononline"]);
+    return utils.tryWrapperForImpl(this[impl].ononline);
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = utils.tryImplForWrapper(V);
-
-    this[impl]["ononline"] = V;
+    this[impl].ononline = utils.tryImplForWrapper(V);
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(WindowEventHandlers.prototype, "onpagehide", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return utils.tryWrapperForImpl(this[impl]["onpagehide"]);
+    return utils.tryWrapperForImpl(this[impl].onpagehide);
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = utils.tryImplForWrapper(V);
-
-    this[impl]["onpagehide"] = V;
+    this[impl].onpagehide = utils.tryImplForWrapper(V);
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(WindowEventHandlers.prototype, "onpageshow", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return utils.tryWrapperForImpl(this[impl]["onpageshow"]);
+    return utils.tryWrapperForImpl(this[impl].onpageshow);
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = utils.tryImplForWrapper(V);
-
-    this[impl]["onpageshow"] = V;
+    this[impl].onpageshow = utils.tryImplForWrapper(V);
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(WindowEventHandlers.prototype, "onpopstate", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return utils.tryWrapperForImpl(this[impl]["onpopstate"]);
+    return utils.tryWrapperForImpl(this[impl].onpopstate);
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = utils.tryImplForWrapper(V);
-
-    this[impl]["onpopstate"] = V;
+    this[impl].onpopstate = utils.tryImplForWrapper(V);
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(WindowEventHandlers.prototype, "onrejectionhandled", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return utils.tryWrapperForImpl(this[impl]["onrejectionhandled"]);
+    return utils.tryWrapperForImpl(this[impl].onrejectionhandled);
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = utils.tryImplForWrapper(V);
-
-    this[impl]["onrejectionhandled"] = V;
+    this[impl].onrejectionhandled = utils.tryImplForWrapper(V);
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(WindowEventHandlers.prototype, "onstorage", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return utils.tryWrapperForImpl(this[impl]["onstorage"]);
+    return utils.tryWrapperForImpl(this[impl].onstorage);
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = utils.tryImplForWrapper(V);
-
-    this[impl]["onstorage"] = V;
+    this[impl].onstorage = utils.tryImplForWrapper(V);
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(WindowEventHandlers.prototype, "onunhandledrejection", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return utils.tryWrapperForImpl(this[impl]["onunhandledrejection"]);
+    return utils.tryWrapperForImpl(this[impl].onunhandledrejection);
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = utils.tryImplForWrapper(V);
-
-    this[impl]["onunhandledrejection"] = V;
+    this[impl].onunhandledrejection = utils.tryImplForWrapper(V);
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(WindowEventHandlers.prototype, "onunload", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return utils.tryWrapperForImpl(this[impl]["onunload"]);
+    return utils.tryWrapperForImpl(this[impl].onunload);
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = utils.tryImplForWrapper(V);
-
-    this[impl]["onunload"] = V;
+    this[impl].onunload = utils.tryImplForWrapper(V);
   },
-
   enumerable: true,
   configurable: true
 });
 
-Object.defineProperty(WindowEventHandlers.prototype, Symbol.toStringTag, {
-  value: "WindowEventHandlers",
-  writable: false,
-  enumerable: false,
-  configurable: true
-});
 
 const iface = {
-  // When an interface-module that implements this interface as a mixin is loaded, it will append its own `.is()`
-  // method into this array. It allows objects that directly implements *those* interfaces to be recognized as
-  // implementing this mixin interface.
-  _mixedIntoPredicates: [],
+  mixedInto: [],
   is(obj) {
     if (obj) {
-      if (utils.hasOwn(obj, impl) && obj[impl] instanceof Impl.implementation) {
+      if (obj[impl] instanceof Impl.implementation) {
         return true;
       }
-      for (const isMixedInto of module.exports._mixedIntoPredicates) {
-        if (isMixedInto(obj)) {
+      for (let i = 0; i < module.exports.mixedInto.length; ++i) {
+        if (obj instanceof module.exports.mixedInto[i]) {
           return true;
         }
       }
@@ -416,54 +203,40 @@ const iface = {
       }
 
       const wrapper = utils.wrapperForImpl(obj);
-      for (const isMixedInto of module.exports._mixedIntoPredicates) {
-        if (isMixedInto(wrapper)) {
+      for (let i = 0; i < module.exports.mixedInto.length; ++i) {
+        if (wrapper instanceof module.exports.mixedInto[i]) {
           return true;
         }
       }
     }
     return false;
   },
-  convert(obj, { context = "The provided value" } = {}) {
-    if (module.exports.is(obj)) {
-      return utils.implForWrapper(obj);
-    }
-    throw new TypeError(`${context} is not of type 'WindowEventHandlers'.`);
-  },
-
   create(constructorArgs, privateData) {
     let obj = Object.create(WindowEventHandlers.prototype);
-    obj = this.setup(obj, constructorArgs, privateData);
+    this.setup(obj, constructorArgs, privateData);
     return obj;
   },
   createImpl(constructorArgs, privateData) {
     let obj = Object.create(WindowEventHandlers.prototype);
-    obj = this.setup(obj, constructorArgs, privateData);
+    this.setup(obj, constructorArgs, privateData);
     return utils.implForWrapper(obj);
   },
-  _internalSetup(obj) {},
+  _internalSetup(obj) {
+  },
   setup(obj, constructorArgs, privateData) {
     if (!privateData) privateData = {};
-
     privateData.wrapper = obj;
 
     this._internalSetup(obj);
-    Object.defineProperty(obj, impl, {
-      value: new Impl.implementation(constructorArgs, privateData),
-      writable: false,
-      enumerable: false,
-      configurable: true
-    });
 
+    obj[impl] = new Impl.implementation(constructorArgs, privateData);
     obj[impl][utils.wrapperSymbol] = obj;
-    if (Impl.init) {
-      Impl.init(obj[impl], privateData);
-    }
-    return obj;
   },
   interface: WindowEventHandlers,
-  expose: {}
-}; // iface
+  expose: {
+    Window: { WindowEventHandlers: WindowEventHandlers }
+  }
+};
 module.exports = iface;
 
 const Impl = require("../nodes/WindowEventHandlers-impl.js");

@@ -1,8 +1,10 @@
 "use strict";
 const whatwgURL = require("whatwg-url");
-const DOMException = require("domexception");
-const { documentBaseURL, parseURLToResultingURLRecord } = require("../helpers/document-base-url");
-const { navigate } = require("./navigation");
+const documentBaseURL = require("../helpers/document-base-url.js").documentBaseURL;
+const parseURLToResultingURLRecord = require("../helpers/document-base-url.js").parseURLToResultingURLRecord;
+const DOMException = require("../../web-idl/DOMException.js");
+const notImplemented = require("../../browser/not-implemented.js");
+const navigate = require("./navigation.js").navigate;
 
 // Not implemented: use of entry settings object's API base URL in href setter, assign, and replace. Instead we just
 // use the document base URL. The difference matters in the case of cross-frame calls.
@@ -18,15 +20,17 @@ exports.implementation = class LocationImpl {
   }
 
   _locationObjectSetterNavigate(url) {
-    // Not implemented: extra steps here to determine replacement flag.
+    // Not implemented: extra steps here to determine replacement flag, since they are not applicable to our
+    // rudimentary "navigation" implementation.
 
     return this._locationObjectNavigate(url);
   }
 
-  _locationObjectNavigate(url, { replacement = false } = {}) {
+  _locationObjectNavigate(url/* , { replacement = false } = {} */) {
     // Not implemented: the setup for calling navigate, which doesn't apply to our stub navigate anyway.
+    // Not implemented: using the replacement flag.
 
-    navigate(this._relevantDocument._defaultView, url, { replacement, exceptionsEnabled: true });
+    navigate(this._relevantDocument._defaultView, url);
   }
 
   toString() {
@@ -38,7 +42,7 @@ exports.implementation = class LocationImpl {
   }
   set href(v) {
     const newURL = whatwgURL.parseURL(v, { baseURL: documentBaseURL(this._relevantDocument) });
-    if (newURL === null) {
+    if (newURL === "failure") {
       throw new TypeError(`Could not parse "${v}" as a URL`);
     }
 
@@ -46,7 +50,7 @@ exports.implementation = class LocationImpl {
   }
 
   get origin() {
-    return whatwgURL.serializeURLOrigin(this._url);
+    return whatwgURL.serializeURLToUnicodeOrigin(this._url);
   }
 
   get protocol() {
@@ -56,7 +60,7 @@ exports.implementation = class LocationImpl {
     const copyURL = Object.assign({}, this._url);
 
     const possibleFailure = whatwgURL.basicURLParse(v + ":", { url: copyURL, stateOverride: "scheme start" });
-    if (possibleFailure === null) {
+    if (possibleFailure === "failure") {
       throw new TypeError(`Could not parse the URL after setting the procol to "${v}"`);
     }
 
@@ -205,9 +209,9 @@ exports.implementation = class LocationImpl {
     // Should be entry settings object; oh well
     const parsedURL = parseURLToResultingURLRecord(url, this._relevantDocument);
 
-    if (parsedURL === null) {
-      throw new DOMException(`Could not resolve the given string "${url}" relative to the ` +
-        `base URL "${this._relevantDocument.URL}"`, "SyntaxError");
+    if (parsedURL === "failure") {
+      throw new DOMException(DOMException.SYNTAX_ERR, `Could not resolve the given string "${url}" relative to the ` +
+        `base URL "${this._relevantDocument.URL}"`);
     }
 
     this._locationObjectNavigate(parsedURL);
@@ -217,16 +221,15 @@ exports.implementation = class LocationImpl {
     // Should be entry settings object; oh well
     const parsedURL = parseURLToResultingURLRecord(url, this._relevantDocument);
 
-    if (parsedURL === null) {
-      throw new DOMException(`Could not resolve the given string "${url}" relative to the ` +
-        `base URL "${this._relevantDocument.URL}"`, "SyntaxError");
+    if (parsedURL === "failure") {
+      throw new DOMException(DOMException.SYNTAX_ERR, `Could not resolve the given string "${url}" relative to the ` +
+        `base URL "${this._relevantDocument.URL}"`);
     }
 
     this._locationObjectNavigate(parsedURL, { replacement: true });
   }
 
   reload() {
-    const flags = { replace: true, reloadTriggered: true, exceptionsEnabled: true };
-    navigate(this._relevantDocument._defaultView, this._url, flags);
+    notImplemented("location.reload()", this._relevantDocument._defaultView);
   }
 };

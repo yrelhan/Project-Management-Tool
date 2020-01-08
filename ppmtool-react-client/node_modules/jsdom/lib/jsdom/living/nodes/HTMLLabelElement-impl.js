@@ -2,14 +2,35 @@
 
 const HTMLElementImpl = require("./HTMLElement-impl").implementation;
 const MouseEvent = require("../generated/MouseEvent");
-const { domSymbolTree } = require("../helpers/internal-constants");
-const NODE_TYPE = require("../node-type");
-const { isLabelable, isDisabled } = require("../helpers/form-controls");
+const closest = require("../helpers/traversal").closest;
+const domSymbolTree = require("../helpers/internal-constants").domSymbolTree;
+
+function isLabelable(node) {
+  // labelable logic defined at: https://html.spec.whatwg.org/multipage/forms.html#category-label
+  if (node.nodeType !== 1) {
+    return false;
+  }
+
+  switch (node.tagName) {
+    case "BUTTON":
+    case "KEYGEN":
+    case "METER":
+    case "OUTPUT":
+    case "PROGRESS":
+    case "SELECT":
+    case "TEXTAREA":
+      return true;
+
+    case "INPUT":
+      return node.type !== "hidden";
+  }
+
+  return false;
+}
 
 function sendClickToAssociatedNode(node) {
-  node.dispatchEvent(MouseEvent.createImpl([
-    "click",
-    {
+  node.dispatchEvent(
+    MouseEvent.createImpl(["click", {
       bubbles: true,
       cancelable: true,
       view: node.ownerDocument ? node.ownerDocument.defaultView : null,
@@ -20,47 +41,29 @@ function sendClickToAssociatedNode(node) {
       button: 0,
       detail: 1,
       relatedTarget: null
-    }
-  ]));
+    }])
+  );
 }
 
 class HTMLLabelElementImpl extends HTMLElementImpl {
-  get control() {
+  _activationBehavior() {
     if (this.hasAttribute("for")) {
-      const forValue = this.getAttribute("for");
-      if (forValue === "") {
-        return null;
+      const node = this.ownerDocument.getElementById(this.getAttribute("for"));
+      if (node && isLabelable(node)) {
+        sendClickToAssociatedNode(node);
       }
-      const root = this.getRootNode();
-      for (const descendant of domSymbolTree.treeIterator(root)) {
-        if (descendant.nodeType === NODE_TYPE.ELEMENT_NODE &&
-          descendant.getAttribute("id") === forValue) {
-          return isLabelable(descendant) ? descendant : null;
+    } else {
+      for (const descendant of domSymbolTree.treeIterator(this)) {
+        if (isLabelable(descendant)) {
+          sendClickToAssociatedNode(descendant);
+          break;
         }
       }
-      return null;
     }
-    for (const descendant of domSymbolTree.treeIterator(this)) {
-      if (isLabelable(descendant)) {
-        return descendant;
-      }
-    }
-    return null;
   }
 
   get form() {
-    const node = this.control;
-    if (node) {
-      return node.form;
-    }
-    return null;
-  }
-
-  _activationBehavior() {
-    const node = this.control;
-    if (node && !isDisabled(node)) {
-      sendClickToAssociatedNode(node);
-    }
+    return closest(this, "form");
   }
 }
 

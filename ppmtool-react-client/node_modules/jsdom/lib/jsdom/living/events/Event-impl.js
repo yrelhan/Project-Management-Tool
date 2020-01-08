@@ -4,20 +4,15 @@ const EventInit = require("../generated/EventInit");
 
 class EventImpl {
   constructor(args, privateData) {
-    const [type, eventInitDict = this.constructor.defaultInit] = args;
+    const type = args[0]; // TODO: Replace with destructuring
+    const eventInitDict = args[1] || EventInit.convert(undefined);
 
     this.type = type;
 
-    this.bubbles = false;
-    this.cancelable = false;
+    const wrapper = privateData.wrapper;
     for (const key in eventInitDict) {
-      if (key in this.constructor.defaultInit) {
+      if (key in wrapper) {
         this[key] = eventInitDict[key];
-      }
-    }
-    for (const key in this.constructor.defaultInit) {
-      if (!(key in this)) {
-        this[key] = this.constructor.defaultInit[key];
       }
     }
 
@@ -33,20 +28,6 @@ class EventImpl {
 
     this.isTrusted = privateData.isTrusted || false;
     this.timeStamp = Date.now();
-  }
-
-  get srcElement() {
-    return this.target;
-  }
-
-  get returnValue() {
-    return !this._canceledFlag;
-  }
-
-  set returnValue(v) {
-    if (this.cancelable && v === false) {
-      this._canceledFlag = true;
-    }
   }
 
   get defaultPrevented() {
@@ -100,7 +81,6 @@ class EventImpl {
     this._initialize(type, bubbles, cancelable);
   }
 }
-EventImpl.defaultInit = EventInit.convert(undefined);
 
 module.exports = {
   implementation: EventImpl

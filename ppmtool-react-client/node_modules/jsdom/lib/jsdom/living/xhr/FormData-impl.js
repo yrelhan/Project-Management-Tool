@@ -1,7 +1,11 @@
 "use strict";
 const idlUtils = require("../generated/utils");
-const { closest } = require("../helpers/traversal");
-const { isDisabled, isSubmittable, isButton, normalizeToCRLF } = require("../helpers/form-controls");
+const isFormElement = require("../generated/HTMLFormElement").isImpl;
+const closest = require("../helpers/traversal").closest;
+const isDisabled = require("../helpers/form-controls").isDisabled;
+const isSubmittable = require("../helpers/form-controls").isSubmittable;
+const isButton = require("../helpers/form-controls").isButton;
+const normalizeToCRLF = require("../helpers/form-controls").normalizeToCRLF;
 const Blob = require("../generated/Blob.js");
 const File = require("../generated/File.js");
 const conversions = require("webidl-conversions");
@@ -11,11 +15,20 @@ exports.implementation = class FormDataImpl {
     this._entries = [];
 
     if (args[0] !== undefined) {
+      if (!isFormElement(args[0])) {
+        throw new TypeError("First argument must undefined or a HTMLFormElement");
+      }
+
       this._entries = constructTheFormDataSet(args[0]);
     }
   }
 
   append(name, value, filename) {
+    // Handling this manually for now: https://github.com/jsdom/webidl2js/issues/29
+    if (!Blob.isImpl(value)) {
+      value = conversions.USVString(value);
+    }
+
     const entry = createAnEntry(name, value, filename);
     this._entries.push(entry);
   }
@@ -38,6 +51,11 @@ exports.implementation = class FormDataImpl {
   }
 
   set(name, value, filename) {
+    // Handling this manually for now: https://github.com/jsdom/webidl2js/issues/29
+    if (!Blob.isImpl(value)) {
+      value = conversions.USVString(value);
+    }
+
     const entry = createAnEntry(name, value, filename);
 
     const foundIndex = this._entries.findIndex(e => e.name === name);
@@ -46,12 +64,6 @@ exports.implementation = class FormDataImpl {
       this._entries = this._entries.filter((e, i) => e.name !== name || i === foundIndex);
     } else {
       this._entries.push(entry);
-    }
-  }
-
-  * [Symbol.iterator]() {
-    for (const entry of this._entries) {
-      yield [entry.name, idlUtils.tryWrapperForImpl(entry.value)];
     }
   }
 };
@@ -93,11 +105,11 @@ function createAnEntry(name, value, filename) {
 function constructTheFormDataSet(form, submitter) {
   // https://html.spec.whatwg.org/multipage/forms.html#constructing-form-data-set
 
-  const controls = form.elements.filter(isSubmittable); // submittable is a subset of listed
+  const controls = Array.prototype.filter.call(form.elements, isSubmittable); // submittable is a subset of listed
   const formDataSet = [];
 
   for (const fieldWrapper of controls) {
-    const field = fieldWrapper;
+    const field = idlUtils.implForWrapper(fieldWrapper);
 
     if (closest(field, "datalist") !== null) {
       continue;
@@ -121,7 +133,7 @@ function constructTheFormDataSet(form, submitter) {
       continue;
     }
 
-    const { type } = field;
+    const type = field.type;
 
     // Omit special processing of <input type="image"> since so far we don't actually ever pass submitter
 
@@ -129,7 +141,8 @@ function constructTheFormDataSet(form, submitter) {
     const name = nameAttr === null ? "" : nameAttr;
 
     if (field.localName === "select") {
-      for (const option of field.options) {
+      for (let i = 0; i < field.options.length; ++i) {
+        const option = idlUtils.implForWrapper(field.options[i]);
         if (option._selectedness === true && !isDisabled(field)) {
           formDataSet.push({ name, value: option.value, type });
         }

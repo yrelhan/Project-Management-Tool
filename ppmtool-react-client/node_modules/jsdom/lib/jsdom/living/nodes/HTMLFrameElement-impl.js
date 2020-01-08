@@ -1,14 +1,16 @@
 "use strict";
-const MIMEType = require("whatwg-mimetype");
-const { parseURL, serializeURL } = require("whatwg-url");
-const { evaluateJavaScriptURL } = require("../window/navigation");
+
+const parseContentType = require("content-type-parser");
+const URL = require("whatwg-url").URL;
+
 const HTMLElementImpl = require("./HTMLElement-impl").implementation;
-const { applyDocumentFeatures } = require("../../browser/documentfeatures");
+const applyDocumentFeatures = require("../../browser/documentfeatures").applyDocumentFeatures;
 const resourceLoader = require("../../browser/resource-loader");
-const { defineGetter, reflectURLAttribute } = require("../../utils");
-const { documentBaseURL } = require("../helpers/document-base-url");
-const { getAttributeValue } = require("../attributes");
+const defineGetter = require("../../utils").defineGetter;
+const documentBaseURLSerialized = require("../helpers/document-base-url").documentBaseURLSerialized;
+const getAttributeValue = require("../attributes").getAttributeValue;
 const idlUtils = require("../generated/utils");
+const reflectURLAttribute = require("../../utils").reflectURLAttribute;
 
 function loadFrame(frame) {
   if (frame._contentDocument) {
@@ -25,17 +27,20 @@ function loadFrame(frame) {
   // https://html.spec.whatwg.org/#process-the-iframe-attributes
   let url;
   const srcAttribute = getAttributeValue(frame, "src");
-  if (srcAttribute === "") {
-    url = parseURL("about:blank");
+  if (srcAttribute === null || srcAttribute === "") {
+    url = new URL("about:blank");
   } else {
-    url = parseURL(srcAttribute, { baseURL: documentBaseURL(parentDoc) || undefined }) || parseURL("about:blank");
+    try {
+      url = new URL(srcAttribute, documentBaseURLSerialized(parentDoc));
+    } catch (e) {
+      url = new URL("about:blank");
+    }
   }
-  const serializedURL = serializeURL(url);
 
   // This is not great, but prevents a require cycle during webidl2js generation
   const wnd = new parentDoc._defaultView.constructor({
     parsingMode: "html",
-    url: url.scheme === "javascript" || serializedURL === "about:blank" ? parentDoc.URL : serializedURL,
+    url: url.protocol === "javascript:" || url.href === "about:blank" ? parentDoc.URL : url.href,
     resourceLoader: parentDoc._customResourceLoader,
     userAgent: parentDoc._defaultView.navigator.userAgent,
     referrer: parentDoc.URL,
@@ -44,9 +49,7 @@ function loadFrame(frame) {
     encoding: parentDoc._encoding,
     agentOptions: parentDoc._agentOptions,
     strictSSL: parentDoc._strictSSL,
-    proxy: parentDoc._proxy,
-    runScripts: parentDoc._defaultView._runScripts,
-    commonForOrigin: parentDoc._defaultView._commonForOrigin
+    proxy: parentDoc._proxy
   });
   const contentDoc = frame._contentDocument = idlUtils.implForWrapper(wnd._document);
   applyDocumentFeatures(contentDoc, parentDoc._implementation._features);
@@ -58,39 +61,31 @@ function loadFrame(frame) {
   contentWindow._frameElement = frame;
   contentWindow._virtualConsole = parent._virtualConsole;
 
-  if (parentDoc.origin === contentDoc.origin) {
-    contentWindow._currentOriginData.windowsInSameOrigin.push(contentWindow);
-  }
-
   // Handle about:blank with a simulated load of an empty document.
-  if (serializedURL === "about:blank") {
+  if (url.href === "about:blank") {
     // Cannot be done inside the enqueued callback; the documentElement etc. need to be immediately available.
     contentDoc.write("<html><head></head><body></body></html>");
     contentDoc.close();
     resourceLoader.enqueue(frame)(); // to fire the load event
-  } else if (url.scheme === "javascript") {
+  } else if (url.protocol === "javascript:") {
     // Cannot be done inside the enqueued callback; the documentElement etc. need to be immediately available.
     contentDoc.write("<html><head></head><body></body></html>");
     contentDoc.close();
-    const result = evaluateJavaScriptURL(contentWindow, url);
-    if (typeof result === "string") {
-      contentDoc.body.textContent = result;
-    }
+    contentWindow.eval(url.pathname);
     resourceLoader.enqueue(frame)(); // to fire the load event
   } else {
     resourceLoader.load(
       frame,
-      serializedURL,
+      url.href,
       { defaultEncoding: parentDoc._encoding, detectMetaCharset: true },
       (html, responseURL, response) => {
         if (response) {
-          const contentType = MIMEType.parse(response.headers["content-type"]);
+          const contentType = parseContentType(response.headers["content-type"]);
           if (contentType) {
             if (contentType.isXML()) {
               contentDoc._parsingMode = "xml";
             }
-            contentDoc.contentType = contentType.essence;
-            contentDoc._encoding = contentType.parameters.get("charset");
+            contentDoc._encoding = contentType.get("charset");
           }
         }
         contentDoc.write(html);

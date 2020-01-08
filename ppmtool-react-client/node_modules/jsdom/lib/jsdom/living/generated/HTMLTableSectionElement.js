@@ -2,204 +2,123 @@
 
 const conversions = require("webidl-conversions");
 const utils = require("./utils.js");
-
-const impl = utils.implSymbol;
 const HTMLElement = require("./HTMLElement.js");
+const impl = utils.implSymbol;
 
 function HTMLTableSectionElement() {
   throw new TypeError("Illegal constructor");
 }
+HTMLTableSectionElement.prototype = Object.create(HTMLElement.interface.prototype);
+HTMLTableSectionElement.prototype.constructor = HTMLTableSectionElement;
 
-Object.setPrototypeOf(HTMLTableSectionElement.prototype, HTMLElement.interface.prototype);
-Object.setPrototypeOf(HTMLTableSectionElement, HTMLElement.interface);
-
-Object.defineProperty(HTMLTableSectionElement, "prototype", {
-  value: HTMLTableSectionElement.prototype,
-  writable: false,
-  enumerable: false,
-  configurable: false
-});
 
 HTMLTableSectionElement.prototype.insertRow = function insertRow() {
   if (!this || !module.exports.is(this)) {
     throw new TypeError("Illegal invocation");
   }
   const args = [];
-  {
-    let curArg = arguments[0];
-    if (curArg !== undefined) {
-      curArg = conversions["long"](curArg, {
-        context: "Failed to execute 'insertRow' on 'HTMLTableSectionElement': parameter 1"
-      });
-    } else {
-      curArg = -1;
-    }
-    args.push(curArg);
+  for (let i = 0; i < arguments.length && i < 1; ++i) {
+    args[i] = utils.tryImplForWrapper(arguments[i]);
   }
-  return utils.tryWrapperForImpl(this[impl].insertRow(...args));
+  if (args[0] !== undefined) {
+  args[0] = conversions["long"](args[0]);
+  } else {
+    args[0] = -1;
+  }
+  return utils.tryWrapperForImpl(this[impl].insertRow.apply(this[impl], args));
 };
 
 HTMLTableSectionElement.prototype.deleteRow = function deleteRow(index) {
   if (!this || !module.exports.is(this)) {
     throw new TypeError("Illegal invocation");
   }
-
   if (arguments.length < 1) {
-    throw new TypeError(
-      "Failed to execute 'deleteRow' on 'HTMLTableSectionElement': 1 argument required, but only " +
-        arguments.length +
-        " present."
-    );
+    throw new TypeError("Failed to execute 'deleteRow' on 'HTMLTableSectionElement': 1 argument required, but only " + arguments.length + " present.");
   }
   const args = [];
-  {
-    let curArg = arguments[0];
-    curArg = conversions["long"](curArg, {
-      context: "Failed to execute 'deleteRow' on 'HTMLTableSectionElement': parameter 1"
-    });
-    args.push(curArg);
+  for (let i = 0; i < arguments.length && i < 1; ++i) {
+    args[i] = utils.tryImplForWrapper(arguments[i]);
   }
-  return this[impl].deleteRow(...args);
+  args[0] = conversions["long"](args[0]);
+  return this[impl].deleteRow.apply(this[impl], args);
 };
 
+HTMLTableSectionElement.prototype.toString = function () {
+  if (this === HTMLTableSectionElement.prototype) {
+    return "[object HTMLTableSectionElementPrototype]";
+  }
+  return HTMLElement.interface.prototype.toString.call(this);
+};
 Object.defineProperty(HTMLTableSectionElement.prototype, "rows", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return utils.getSameObject(this, "rows", () => {
-      return utils.tryWrapperForImpl(this[impl]["rows"]);
-    });
+    return utils.tryWrapperForImpl(this[impl].rows);
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(HTMLTableSectionElement.prototype, "align", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
     const value = this.getAttribute("align");
     return value === null ? "" : value;
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = conversions["DOMString"](V, {
-      context: "Failed to set the 'align' property on 'HTMLTableSectionElement': The provided value"
-    });
-
+    V = conversions["DOMString"](V);
     this.setAttribute("align", V);
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(HTMLTableSectionElement.prototype, "ch", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
     const value = this.getAttribute("char");
     return value === null ? "" : value;
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = conversions["DOMString"](V, {
-      context: "Failed to set the 'ch' property on 'HTMLTableSectionElement': The provided value"
-    });
-
+    V = conversions["DOMString"](V);
     this.setAttribute("char", V);
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(HTMLTableSectionElement.prototype, "chOff", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
     const value = this.getAttribute("charoff");
     return value === null ? "" : value;
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = conversions["DOMString"](V, {
-      context: "Failed to set the 'chOff' property on 'HTMLTableSectionElement': The provided value"
-    });
-
+    V = conversions["DOMString"](V);
     this.setAttribute("charoff", V);
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(HTMLTableSectionElement.prototype, "vAlign", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
     const value = this.getAttribute("vAlign");
     return value === null ? "" : value;
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = conversions["DOMString"](V, {
-      context: "Failed to set the 'vAlign' property on 'HTMLTableSectionElement': The provided value"
-    });
-
+    V = conversions["DOMString"](V);
     this.setAttribute("vAlign", V);
   },
-
   enumerable: true,
   configurable: true
 });
 
-Object.defineProperty(HTMLTableSectionElement.prototype, Symbol.toStringTag, {
-  value: "HTMLTableSectionElement",
-  writable: false,
-  enumerable: false,
-  configurable: true
-});
 
 const iface = {
-  // When an interface-module that implements this interface as a mixin is loaded, it will append its own `.is()`
-  // method into this array. It allows objects that directly implements *those* interfaces to be recognized as
-  // implementing this mixin interface.
-  _mixedIntoPredicates: [],
+  mixedInto: [],
   is(obj) {
     if (obj) {
-      if (utils.hasOwn(obj, impl) && obj[impl] instanceof Impl.implementation) {
+      if (obj[impl] instanceof Impl.implementation) {
         return true;
       }
-      for (const isMixedInto of module.exports._mixedIntoPredicates) {
-        if (isMixedInto(obj)) {
+      for (let i = 0; i < module.exports.mixedInto.length; ++i) {
+        if (obj instanceof module.exports.mixedInto[i]) {
           return true;
         }
       }
@@ -213,58 +132,42 @@ const iface = {
       }
 
       const wrapper = utils.wrapperForImpl(obj);
-      for (const isMixedInto of module.exports._mixedIntoPredicates) {
-        if (isMixedInto(wrapper)) {
+      for (let i = 0; i < module.exports.mixedInto.length; ++i) {
+        if (wrapper instanceof module.exports.mixedInto[i]) {
           return true;
         }
       }
     }
     return false;
   },
-  convert(obj, { context = "The provided value" } = {}) {
-    if (module.exports.is(obj)) {
-      return utils.implForWrapper(obj);
-    }
-    throw new TypeError(`${context} is not of type 'HTMLTableSectionElement'.`);
-  },
-
   create(constructorArgs, privateData) {
     let obj = Object.create(HTMLTableSectionElement.prototype);
-    obj = this.setup(obj, constructorArgs, privateData);
+    this.setup(obj, constructorArgs, privateData);
     return obj;
   },
   createImpl(constructorArgs, privateData) {
     let obj = Object.create(HTMLTableSectionElement.prototype);
-    obj = this.setup(obj, constructorArgs, privateData);
+    this.setup(obj, constructorArgs, privateData);
     return utils.implForWrapper(obj);
   },
   _internalSetup(obj) {
     HTMLElement._internalSetup(obj);
+
   },
   setup(obj, constructorArgs, privateData) {
     if (!privateData) privateData = {};
-
     privateData.wrapper = obj;
 
     this._internalSetup(obj);
-    Object.defineProperty(obj, impl, {
-      value: new Impl.implementation(constructorArgs, privateData),
-      writable: false,
-      enumerable: false,
-      configurable: true
-    });
 
+    obj[impl] = new Impl.implementation(constructorArgs, privateData);
     obj[impl][utils.wrapperSymbol] = obj;
-    if (Impl.init) {
-      Impl.init(obj[impl], privateData);
-    }
-    return obj;
   },
   interface: HTMLTableSectionElement,
   expose: {
-    Window: { HTMLTableSectionElement }
+    Window: { HTMLTableSectionElement: HTMLTableSectionElement }
   }
-}; // iface
+};
 module.exports = iface;
 
 const Impl = require("../nodes/HTMLTableSectionElement-impl.js");

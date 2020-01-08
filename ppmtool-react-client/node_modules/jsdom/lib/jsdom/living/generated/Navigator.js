@@ -2,8 +2,8 @@
 
 const conversions = require("webidl-conversions");
 const utils = require("./utils.js");
-
 const impl = utils.implSymbol;
+const mixin = utils.mixin;
 const NavigatorID = require("./NavigatorID.js");
 const NavigatorLanguage = require("./NavigatorLanguage.js");
 const NavigatorOnLine = require("./NavigatorOnLine.js");
@@ -15,222 +15,35 @@ function Navigator() {
   throw new TypeError("Illegal constructor");
 }
 
-Object.defineProperty(Navigator, "prototype", {
-  value: Navigator.prototype,
-  writable: false,
-  enumerable: false,
-  configurable: false
-});
+mixin(Navigator.prototype, NavigatorID.interface.prototype);
+NavigatorID.mixedInto.push(Navigator);
+mixin(Navigator.prototype, NavigatorLanguage.interface.prototype);
+NavigatorLanguage.mixedInto.push(Navigator);
+mixin(Navigator.prototype, NavigatorOnLine.interface.prototype);
+NavigatorOnLine.mixedInto.push(Navigator);
+mixin(Navigator.prototype, NavigatorCookies.interface.prototype);
+NavigatorCookies.mixedInto.push(Navigator);
+mixin(Navigator.prototype, NavigatorPlugins.interface.prototype);
+NavigatorPlugins.mixedInto.push(Navigator);
+mixin(Navigator.prototype, NavigatorConcurrentHardware.interface.prototype);
+NavigatorConcurrentHardware.mixedInto.push(Navigator);
 
-Navigator.prototype.javaEnabled = function javaEnabled() {
-  if (!this || !module.exports.is(this)) {
-    throw new TypeError("Illegal invocation");
+Navigator.prototype.toString = function () {
+  if (this === Navigator.prototype) {
+    return "[object NavigatorPrototype]";
   }
-
-  return this[impl].javaEnabled();
+  return this[impl].toString();
 };
 
-Object.defineProperty(Navigator.prototype, "appCodeName", {
-  get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return this[impl]["appCodeName"];
-  },
-
-  enumerable: true,
-  configurable: true
-});
-
-Object.defineProperty(Navigator.prototype, "appName", {
-  get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return this[impl]["appName"];
-  },
-
-  enumerable: true,
-  configurable: true
-});
-
-Object.defineProperty(Navigator.prototype, "appVersion", {
-  get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return this[impl]["appVersion"];
-  },
-
-  enumerable: true,
-  configurable: true
-});
-
-Object.defineProperty(Navigator.prototype, "platform", {
-  get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return this[impl]["platform"];
-  },
-
-  enumerable: true,
-  configurable: true
-});
-
-Object.defineProperty(Navigator.prototype, "product", {
-  get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return this[impl]["product"];
-  },
-
-  enumerable: true,
-  configurable: true
-});
-
-Object.defineProperty(Navigator.prototype, "productSub", {
-  get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return this[impl]["productSub"];
-  },
-
-  enumerable: true,
-  configurable: true
-});
-
-Object.defineProperty(Navigator.prototype, "userAgent", {
-  get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return this[impl]["userAgent"];
-  },
-
-  enumerable: true,
-  configurable: true
-});
-
-Object.defineProperty(Navigator.prototype, "vendor", {
-  get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return this[impl]["vendor"];
-  },
-
-  enumerable: true,
-  configurable: true
-});
-
-Object.defineProperty(Navigator.prototype, "vendorSub", {
-  get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return this[impl]["vendorSub"];
-  },
-
-  enumerable: true,
-  configurable: true
-});
-
-Object.defineProperty(Navigator.prototype, "language", {
-  get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return this[impl]["language"];
-  },
-
-  enumerable: true,
-  configurable: true
-});
-
-Object.defineProperty(Navigator.prototype, "languages", {
-  get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return utils.tryWrapperForImpl(this[impl]["languages"]);
-  },
-
-  enumerable: true,
-  configurable: true
-});
-
-Object.defineProperty(Navigator.prototype, "onLine", {
-  get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return this[impl]["onLine"];
-  },
-
-  enumerable: true,
-  configurable: true
-});
-
-Object.defineProperty(Navigator.prototype, "cookieEnabled", {
-  get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return this[impl]["cookieEnabled"];
-  },
-
-  enumerable: true,
-  configurable: true
-});
-
-Object.defineProperty(Navigator.prototype, "hardwareConcurrency", {
-  get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return this[impl]["hardwareConcurrency"];
-  },
-
-  enumerable: true,
-  configurable: true
-});
-
-Object.defineProperty(Navigator.prototype, Symbol.toStringTag, {
-  value: "Navigator",
-  writable: false,
-  enumerable: false,
-  configurable: true
-});
-
 const iface = {
-  // When an interface-module that implements this interface as a mixin is loaded, it will append its own `.is()`
-  // method into this array. It allows objects that directly implements *those* interfaces to be recognized as
-  // implementing this mixin interface.
-  _mixedIntoPredicates: [],
+  mixedInto: [],
   is(obj) {
     if (obj) {
-      if (utils.hasOwn(obj, impl) && obj[impl] instanceof Impl.implementation) {
+      if (obj[impl] instanceof Impl.implementation) {
         return true;
       }
-      for (const isMixedInto of module.exports._mixedIntoPredicates) {
-        if (isMixedInto(obj)) {
+      for (let i = 0; i < module.exports.mixedInto.length; ++i) {
+        if (obj instanceof module.exports.mixedInto[i]) {
           return true;
         }
       }
@@ -244,68 +57,40 @@ const iface = {
       }
 
       const wrapper = utils.wrapperForImpl(obj);
-      for (const isMixedInto of module.exports._mixedIntoPredicates) {
-        if (isMixedInto(wrapper)) {
+      for (let i = 0; i < module.exports.mixedInto.length; ++i) {
+        if (wrapper instanceof module.exports.mixedInto[i]) {
           return true;
         }
       }
     }
     return false;
   },
-  convert(obj, { context = "The provided value" } = {}) {
-    if (module.exports.is(obj)) {
-      return utils.implForWrapper(obj);
-    }
-    throw new TypeError(`${context} is not of type 'Navigator'.`);
-  },
-
   create(constructorArgs, privateData) {
     let obj = Object.create(Navigator.prototype);
-    obj = this.setup(obj, constructorArgs, privateData);
+    this.setup(obj, constructorArgs, privateData);
     return obj;
   },
   createImpl(constructorArgs, privateData) {
     let obj = Object.create(Navigator.prototype);
-    obj = this.setup(obj, constructorArgs, privateData);
+    this.setup(obj, constructorArgs, privateData);
     return utils.implForWrapper(obj);
   },
-  _internalSetup(obj) {},
+  _internalSetup(obj) {
+  },
   setup(obj, constructorArgs, privateData) {
     if (!privateData) privateData = {};
-
     privateData.wrapper = obj;
 
     this._internalSetup(obj);
-    Object.defineProperty(obj, impl, {
-      value: new Impl.implementation(constructorArgs, privateData),
-      writable: false,
-      enumerable: false,
-      configurable: true
-    });
 
+    obj[impl] = new Impl.implementation(constructorArgs, privateData);
     obj[impl][utils.wrapperSymbol] = obj;
-    if (Impl.init) {
-      Impl.init(obj[impl], privateData);
-    }
-    return obj;
   },
   interface: Navigator,
   expose: {
-    Window: { Navigator }
+    Window: { Navigator: Navigator }
   }
-}; // iface
+};
 module.exports = iface;
-
-NavigatorID._mixedIntoPredicates.push(module.exports.is);
-
-NavigatorLanguage._mixedIntoPredicates.push(module.exports.is);
-
-NavigatorOnLine._mixedIntoPredicates.push(module.exports.is);
-
-NavigatorCookies._mixedIntoPredicates.push(module.exports.is);
-
-NavigatorPlugins._mixedIntoPredicates.push(module.exports.is);
-
-NavigatorConcurrentHardware._mixedIntoPredicates.push(module.exports.is);
 
 const Impl = require("../navigator/Navigator-impl.js");

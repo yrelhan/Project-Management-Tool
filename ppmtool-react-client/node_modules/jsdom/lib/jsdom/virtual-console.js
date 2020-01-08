@@ -1,5 +1,5 @@
 "use strict";
-const { EventEmitter } = require("events");
+const EventEmitter = require("events").EventEmitter;
 
 module.exports = class VirtualConsole extends EventEmitter {
   constructor() {
@@ -19,13 +19,13 @@ module.exports = class VirtualConsole extends EventEmitter {
     for (const method of Object.keys(anyConsole)) {
       if (typeof anyConsole[method] === "function") {
         function onMethodCall() {
-          anyConsole[method](...arguments);
+          anyConsole[method].apply(anyConsole, arguments);
         }
         this.on(method, onMethodCall);
       }
     }
 
-    if (!options.omitJSDOMErrors) {
+    if (!options.omitJsdomErrors) {
       this.on("jsdomError", e => anyConsole.error(e.stack, e.detail));
     }
 

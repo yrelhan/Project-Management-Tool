@@ -1,7 +1,7 @@
 "use strict";
 
 const HTMLMediaElementImpl = require("./HTMLMediaElement-impl").implementation;
-const { reflectURLAttribute } = require("../../utils");
+const reflectURLAttribute = require("../../utils").reflectURLAttribute;
 
 class HTMLVideoElementImpl extends HTMLMediaElementImpl {
   get poster() {

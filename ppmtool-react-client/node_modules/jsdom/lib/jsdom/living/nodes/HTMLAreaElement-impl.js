@@ -1,5 +1,5 @@
 "use strict";
-const { mixin } = require("../../utils");
+const idlUtils = require("../generated/utils");
 const HTMLElementImpl = require("./HTMLElement-impl").implementation;
 const HTMLHyperlinkElementUtilsImpl = require("./HTMLHyperlinkElementUtils-impl").implementation;
 
@@ -11,7 +11,7 @@ class HTMLAreaElementImpl extends HTMLElementImpl {
   }
 }
 
-mixin(HTMLAreaElementImpl.prototype, HTMLHyperlinkElementUtilsImpl.prototype);
+idlUtils.mixin(HTMLAreaElementImpl.prototype, HTMLHyperlinkElementUtilsImpl.prototype);
 
 module.exports = {
   implementation: HTMLAreaElementImpl

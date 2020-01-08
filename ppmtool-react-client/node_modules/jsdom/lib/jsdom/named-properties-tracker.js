@@ -1,8 +1,8 @@
 "use strict";
 // https://heycam.github.io/webidl/#idl-named-properties
 
-const IS_NAMED_PROPERTY = Symbol("is named property");
-const TRACKER = Symbol("named property tracker");
+const IS_NAMED_PROPERTY = Symbol();
+const TRACKER = Symbol();
 
 /**
  * Create a new NamedPropertiesTracker for the given `object`.
@@ -12,8 +12,7 @@ const TRACKER = Symbol("named property tracker");
  *
  * This tracker is a workaround because the ES6 Proxy feature is not yet available.
  *
- * @param {Object} object Object used to write properties to
- * @param {Object} objectProxy Object used to check if a property is already defined
+ * @param {Object} object
  * @param {Function} resolverFunc Each time a property is accessed, this function is called to determine the value of
  *        the property. The function is passed 3 arguments: (object, name, values).
  *        `object` is identical to the `object` parameter of this `create` function.
@@ -23,12 +22,12 @@ const TRACKER = Symbol("named property tracker");
  *
  * @returns {NamedPropertiesTracker}
  */
-exports.create = function (object, objectProxy, resolverFunc) {
+exports.create = function (object, resolverFunc) {
   if (object[TRACKER]) {
     throw Error("A NamedPropertiesTracker has already been created for this object");
   }
 
-  const tracker = new NamedPropertiesTracker(object, objectProxy, resolverFunc);
+  const tracker = new NamedPropertiesTracker(object, resolverFunc);
   object[TRACKER] = tracker;
   return tracker;
 };
@@ -41,9 +40,8 @@ exports.get = function (object) {
   return object[TRACKER] || null;
 };
 
-function NamedPropertiesTracker(object, objectProxy, resolverFunc) {
+function NamedPropertiesTracker(object, resolverFunc) {
   this.object = object;
-  this.objectProxy = objectProxy;
   this.resolverFunc = resolverFunc;
   this.trackedValues = new Map(); // Map<Set<value>>
 }
@@ -100,7 +98,7 @@ NamedPropertiesTracker.prototype.track = function (name, value) {
 
   valueSet.add(value);
 
-  if (name in this.objectProxy) {
+  if (name in this.object) {
     // already added our getter or it is not a named property (e.g. "addEventListener")
     return;
   }

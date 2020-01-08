@@ -1,226 +1,131 @@
-'use strict';
+'use strict'; /**
+               * Copyright (c) 2014-present, Facebook, Inc. All rights reserved.
+               *
+               * This source code is licensed under the BSD-style license found in the
+               * LICENSE file in the root directory of this source tree. An additional grant
+               * of patent rights can be found in the PATENTS file in the same directory.
+               *
+               * 
+               */
 
-function _crypto() {
-  const data = _interopRequireDefault(require('crypto'));
 
-  _crypto = function _crypto() {
-    return data;
-  };
 
-  return data;
-}
 
-function _fs() {
-  const data = _interopRequireDefault(require('fs'));
+const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+const jestPreset = require('babel-preset-jest');
 
-  _fs = function _fs() {
-    return data;
-  };
+const BABELRC_FILENAME = '.babelrc';
+const BABELRC_JS_FILENAME = '.babelrc.js';
+const BABEL_CONFIG_KEY = 'babel';
+const PACKAGE_JSON = 'package.json';
+const THIS_FILE = fs.readFileSync(__filename);
 
-  return data;
-}
+let babel;
 
-function _path() {
-  const data = _interopRequireDefault(require('path'));
+const createTransformer = options => {
+  const cache = Object.create(null);
 
-  _path = function _path() {
-    return data;
-  };
+  const getBabelRC = filename => {
+    const paths = [];
+    let directory = filename;
+    while (directory !== (directory = path.dirname(directory))) {
+      if (cache[directory]) {
+        break;
+      }
 
-  return data;
-}
+      paths.push(directory);
+      const configFilePath = path.join(directory, BABELRC_FILENAME);
+      if (fs.existsSync(configFilePath)) {
+        cache[directory] = fs.readFileSync(configFilePath, 'utf8');
+        break;
+      }
+      const configJsFilePath = path.join(directory, BABELRC_JS_FILENAME);
+      if (fs.existsSync(configJsFilePath)) {
+        // $FlowFixMe
+        cache[directory] = JSON.stringify(require(configJsFilePath));
+        break;
+      }
+      const packageJsonFilePath = path.join(directory, PACKAGE_JSON);
+      if (fs.existsSync(packageJsonFilePath)) {
+        // $FlowFixMe
+        const packageJsonFileContents = require(packageJsonFilePath);
+        if (packageJsonFileContents[BABEL_CONFIG_KEY]) {
+          cache[directory] = JSON.stringify(
+          packageJsonFileContents[BABEL_CONFIG_KEY]);
 
-function _core() {
-  const data = require('@babel/core');
-
-  _core = function _core() {
-    return data;
-  };
-
-  return data;
-}
-
-function _chalk() {
-  const data = _interopRequireDefault(require('chalk'));
-
-  _chalk = function _chalk() {
-    return data;
-  };
-
-  return data;
-}
-
-function _slash() {
-  const data = _interopRequireDefault(require('slash'));
-
-  _slash = function _slash() {
-    return data;
-  };
-
-  return data;
-}
-
-function _interopRequireDefault(obj) {
-  return obj && obj.__esModule ? obj : {default: obj};
-}
-
-function _objectSpread(target) {
-  for (var i = 1; i < arguments.length; i++) {
-    var source = arguments[i] != null ? arguments[i] : {};
-    var ownKeys = Object.keys(source);
-    if (typeof Object.getOwnPropertySymbols === 'function') {
-      ownKeys = ownKeys.concat(
-        Object.getOwnPropertySymbols(source).filter(function(sym) {
-          return Object.getOwnPropertyDescriptor(source, sym).enumerable;
-        })
-      );
-    }
-    ownKeys.forEach(function(key) {
-      _defineProperty(target, key, source[key]);
-    });
-  }
-  return target;
-}
-
-function _defineProperty(obj, key, value) {
-  if (key in obj) {
-    Object.defineProperty(obj, key, {
-      value: value,
-      enumerable: true,
-      configurable: true,
-      writable: true
-    });
-  } else {
-    obj[key] = value;
-  }
-  return obj;
-}
-
-const THIS_FILE = _fs().default.readFileSync(__filename);
-
-const jestPresetPath = require.resolve('babel-preset-jest');
-
-const babelIstanbulPlugin = require.resolve('babel-plugin-istanbul'); // Narrow down the types
-
-const createTransformer = (options = {}) => {
-  options = _objectSpread({}, options, {
-    caller: {
-      name: 'babel-jest',
-      supportsStaticESM: false
-    },
-    compact: false,
-    plugins: (options && options.plugins) || [],
-    presets: ((options && options.presets) || []).concat(jestPresetPath),
-    sourceMaps: 'both'
-  });
-
-  function loadBabelConfig(cwd, filename) {
-    // `cwd` first to allow incoming options to override it
-    const babelConfig = (0, _core().loadPartialConfig)(
-      _objectSpread(
-        {
-          cwd
-        },
-        options,
-        {
-          filename
+          break;
         }
-      )
-    );
-
-    if (!babelConfig) {
-      throw new Error(
-        `babel-jest: Babel ignores ${_chalk().default.bold(
-          (0, _slash().default)(_path().default.relative(cwd, filename))
-        )} - make sure to include the file in Jest's ${_chalk().default.bold(
-          'transformIgnorePatterns'
-        )} as well.`
-      );
+      }
     }
+    paths.forEach(directoryPath => cache[directoryPath] = cache[directory]);
+    return cache[directory] || '';
+  };
 
-    return babelConfig;
-  }
+  options = Object.assign({}, options, {
+    plugins: options && options.plugins || [],
+    presets: (options && options.presets || []).concat([jestPreset]),
+    retainLines: true });
+
+  delete options.cacheDirectory;
+  delete options.filename;
 
   return {
     canInstrument: true,
-
     getCacheKey(
-      fileData,
-      filename,
-      configString,
-      {config, instrument, rootDir}
-    ) {
-      const babelOptions = loadBabelConfig(config.cwd, filename);
-      const configPath = [
-        babelOptions.config || '',
-        babelOptions.babelrc || ''
-      ];
-      return _crypto()
-        .default.createHash('md5')
-        .update(THIS_FILE)
-        .update('\0', 'utf8')
-        .update(JSON.stringify(babelOptions.options))
-        .update('\0', 'utf8')
-        .update(fileData)
-        .update('\0', 'utf8')
-        .update(_path().default.relative(rootDir, filename))
-        .update('\0', 'utf8')
-        .update(configString)
-        .update('\0', 'utf8')
-        .update(configPath.join(''))
-        .update('\0', 'utf8')
-        .update(instrument ? 'instrument' : '')
-        .update('\0', 'utf8')
-        .update(process.env.NODE_ENV || '')
-        .update('\0', 'utf8')
-        .update(process.env.BABEL_ENV || '')
-        .digest('hex');
+    fileData,
+    filename,
+    configString, _ref)
+
+    {let instrument = _ref.instrument;
+      return crypto.
+      createHash('md5').
+      update(THIS_FILE).
+      update('\0', 'utf8').
+      update(fileData).
+      update('\0', 'utf8').
+      update(configString).
+      update('\0', 'utf8').
+      update(getBabelRC(filename)).
+      update('\0', 'utf8').
+      update(instrument ? 'instrument' : '').
+      digest('hex');
     },
+    process(
+    src,
+    filename,
+    config,
+    transformOptions)
+    {
+      if (!babel) {
+        babel = require('babel-core');
+      }
 
-    process(src, filename, config, transformOptions) {
-      const babelOptions = _objectSpread(
-        {},
-        loadBabelConfig(config.cwd, filename).options
-      );
+      if (babel.util && !babel.util.canCompile(filename)) {
+        return src;
+      }
 
+      const theseOptions = Object.assign({ filename }, options);
       if (transformOptions && transformOptions.instrument) {
-        babelOptions.auxiliaryCommentBefore = ' istanbul ignore next '; // Copied from jest-runtime transform.js
+        theseOptions.auxiliaryCommentBefore = ' istanbul ignore next ';
+        // Copied from jest-runtime transform.js
+        theseOptions.plugins = theseOptions.plugins.concat([
+        [
+        require('babel-plugin-istanbul').default,
+        {
+          // files outside `cwd` will not be instrumented
+          cwd: config.rootDir,
+          exclude: [] }]]);
 
-        babelOptions.plugins = (babelOptions.plugins || []).concat([
-          [
-            babelIstanbulPlugin,
-            {
-              // files outside `cwd` will not be instrumented
-              cwd: config.rootDir,
-              exclude: []
-            }
-          ]
-        ]);
+
+
       }
 
-      const transformResult = (0, _core().transformSync)(src, babelOptions);
+      return babel.transform(src, theseOptions).code;
+    } };
 
-      if (transformResult) {
-        const code = transformResult.code,
-          map = transformResult.map;
-
-        if (typeof code === 'string') {
-          return {
-            code,
-            map
-          };
-        }
-      }
-
-      return src;
-    }
-  };
 };
 
-const transformer = _objectSpread({}, createTransformer(), {
-  // Assigned here so only the exported transformer has `createTransformer`,
-  // instead of all created transformers by the function
-  createTransformer
-});
-
-module.exports = transformer;
+module.exports = createTransformer();
+module.exports.createTransformer = createTransformer;

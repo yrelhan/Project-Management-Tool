@@ -1,6 +1,6 @@
 "use strict";
 
-const { domSymbolTree } = require("../helpers/internal-constants");
+const domSymbolTree = require("../helpers/internal-constants").domSymbolTree;
 const NODE_TYPE = require("../node-type");
 
 class NonDocumentTypeChildNodeImpl {

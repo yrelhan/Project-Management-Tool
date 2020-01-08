@@ -1,12 +1,10 @@
 'use strict';
 
-var DOCUMENT_MODE = require('../common/html').DOCUMENT_MODE;
-
 //Node construction
 exports.createDocument = function () {
     return {
         nodeName: '#document',
-        mode: DOCUMENT_MODE.NO_QUIRKS,
+        quirksMode: false,
         childNodes: []
     };
 };
@@ -14,6 +12,7 @@ exports.createDocument = function () {
 exports.createDocumentFragment = function () {
     return {
         nodeName: '#document-fragment',
+        quirksMode: false,
         childNodes: []
     };
 };
@@ -42,31 +41,11 @@ var createTextNode = function (value) {
         nodeName: '#text',
         value: value,
         parentNode: null
-    };
+    }
 };
 
 
 //Tree mutation
-var appendChild = exports.appendChild = function (parentNode, newNode) {
-    parentNode.childNodes.push(newNode);
-    newNode.parentNode = parentNode;
-};
-
-var insertBefore = exports.insertBefore = function (parentNode, newNode, referenceNode) {
-    var insertionIdx = parentNode.childNodes.indexOf(referenceNode);
-
-    parentNode.childNodes.splice(insertionIdx, 0, newNode);
-    newNode.parentNode = parentNode;
-};
-
-exports.setTemplateContent = function (templateElement, contentElement) {
-    templateElement.content = contentElement;
-};
-
-exports.getTemplateContent = function (templateElement) {
-    return templateElement.content;
-};
-
 exports.setDocumentType = function (document, name, publicId, systemId) {
     var doctypeNode = null;
 
@@ -93,12 +72,24 @@ exports.setDocumentType = function (document, name, publicId, systemId) {
     }
 };
 
-exports.setDocumentMode = function (document, mode) {
-    document.mode = mode;
+exports.setQuirksMode = function (document) {
+    document.quirksMode = true;
 };
 
-exports.getDocumentMode = function (document) {
-    return document.mode;
+exports.isQuirksMode = function (document) {
+    return document.quirksMode;
+};
+
+var appendChild = exports.appendChild = function (parentNode, newNode) {
+    parentNode.childNodes.push(newNode);
+    newNode.parentNode = parentNode;
+};
+
+var insertBefore = exports.insertBefore = function (parentNode, newNode, referenceNode) {
+    var insertionIdx = parentNode.childNodes.indexOf(referenceNode);
+
+    parentNode.childNodes.splice(insertionIdx, 0, newNode);
+    newNode.parentNode = parentNode;
 };
 
 exports.detachNode = function (node) {
@@ -132,15 +123,15 @@ exports.insertTextBefore = function (parentNode, text, referenceNode) {
         insertBefore(parentNode, createTextNode(text), referenceNode);
 };
 
-exports.adoptAttributes = function (recipient, attrs) {
+exports.adoptAttributes = function (recipientNode, attrs) {
     var recipientAttrsMap = [];
 
-    for (var i = 0; i < recipient.attrs.length; i++)
-        recipientAttrsMap.push(recipient.attrs[i].name);
+    for (var i = 0; i < recipientNode.attrs.length; i++)
+        recipientAttrsMap.push(recipientNode.attrs[i].name);
 
     for (var j = 0; j < attrs.length; j++) {
         if (recipientAttrsMap.indexOf(attrs[j].name) === -1)
-            recipient.attrs.push(attrs[j]);
+            recipientNode.attrs.push(attrs[j]);
     }
 };
 
@@ -158,8 +149,8 @@ exports.getParentNode = function (node) {
     return node.parentNode;
 };
 
-exports.getAttrList = function (element) {
-    return element.attrs;
+exports.getAttrList = function (node) {
+    return node.attrs;
 };
 
 //Node data

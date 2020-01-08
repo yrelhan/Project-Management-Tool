@@ -2,8 +2,9 @@
 
 const HTMLElementImpl = require("./HTMLElement-impl").implementation;
 
-const { cloningSteps, domSymbolTree } = require("../helpers/internal-constants");
-const { clone } = require("../node");
+const cloningSteps = require("../helpers/internal-constants").cloningSteps;
+const clone = require("../node").clone;
+const domSymbolTree = require("../helpers/internal-constants").domSymbolTree;
 
 class HTMLTemplateElementImpl extends HTMLElementImpl {
   constructor(args, privateData) {
@@ -21,7 +22,7 @@ class HTMLTemplateElementImpl extends HTMLElementImpl {
     }
 
     for (const child of domSymbolTree.childrenIterator(node._templateContents)) {
-      const childCopy = clone(child, copy._templateContents._ownerDocument, true);
+      const childCopy = clone(this._core, child, copy._templateContents._ownerDocument, true);
       copy._templateContents.appendChild(childCopy);
     }
   }

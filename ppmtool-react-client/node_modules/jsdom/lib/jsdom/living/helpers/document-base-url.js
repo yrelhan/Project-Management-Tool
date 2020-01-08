@@ -1,10 +1,11 @@
 "use strict";
+const internalQuerySelector = require("./selectors").querySelector;
 const whatwgURL = require("whatwg-url");
 
 exports.documentBaseURL = document => {
   // https://html.spec.whatwg.org/multipage/infrastructure.html#document-base-url
 
-  const firstBase = document.querySelector("base[href]");
+  const firstBase = internalQuerySelector(document, "base[href]");
   const fallbackBaseURL = exports.fallbackBaseURL(document);
 
   if (firstBase === null) {
@@ -48,5 +49,5 @@ function frozenBaseURL(baseElement, fallbackBaseURL) {
 
   const baseHrefAttribute = baseElement.getAttribute("href");
   const result = whatwgURL.parseURL(baseHrefAttribute, { baseURL: fallbackBaseURL });
-  return result === null ? fallbackBaseURL : result;
+  return result === "failure" ? fallbackBaseURL : result;
 }

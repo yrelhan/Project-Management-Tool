@@ -2,72 +2,48 @@
 
 const conversions = require("webidl-conversions");
 const utils = require("./utils.js");
-
-const impl = utils.implSymbol;
 const HTMLElement = require("./HTMLElement.js");
+const impl = utils.implSymbol;
 
 function HTMLDListElement() {
   throw new TypeError("Illegal constructor");
 }
+HTMLDListElement.prototype = Object.create(HTMLElement.interface.prototype);
+HTMLDListElement.prototype.constructor = HTMLDListElement;
 
-Object.setPrototypeOf(HTMLDListElement.prototype, HTMLElement.interface.prototype);
-Object.setPrototypeOf(HTMLDListElement, HTMLElement.interface);
 
-Object.defineProperty(HTMLDListElement, "prototype", {
-  value: HTMLDListElement.prototype,
-  writable: false,
-  enumerable: false,
-  configurable: false
-});
-
+HTMLDListElement.prototype.toString = function () {
+  if (this === HTMLDListElement.prototype) {
+    return "[object HTMLDListElementPrototype]";
+  }
+  return HTMLElement.interface.prototype.toString.call(this);
+};
 Object.defineProperty(HTMLDListElement.prototype, "compact", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
     return this.hasAttribute("compact");
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = conversions["boolean"](V, {
-      context: "Failed to set the 'compact' property on 'HTMLDListElement': The provided value"
-    });
-
+    V = conversions["boolean"](V);
     if (V) {
-      this.setAttribute("compact", "");
-    } else {
-      this.removeAttribute("compact");
-    }
+    this.setAttribute("compact", "");
+  } else {
+    this.removeAttribute("compact");
+  }
   },
-
   enumerable: true,
   configurable: true
 });
 
-Object.defineProperty(HTMLDListElement.prototype, Symbol.toStringTag, {
-  value: "HTMLDListElement",
-  writable: false,
-  enumerable: false,
-  configurable: true
-});
 
 const iface = {
-  // When an interface-module that implements this interface as a mixin is loaded, it will append its own `.is()`
-  // method into this array. It allows objects that directly implements *those* interfaces to be recognized as
-  // implementing this mixin interface.
-  _mixedIntoPredicates: [],
+  mixedInto: [],
   is(obj) {
     if (obj) {
-      if (utils.hasOwn(obj, impl) && obj[impl] instanceof Impl.implementation) {
+      if (obj[impl] instanceof Impl.implementation) {
         return true;
       }
-      for (const isMixedInto of module.exports._mixedIntoPredicates) {
-        if (isMixedInto(obj)) {
+      for (let i = 0; i < module.exports.mixedInto.length; ++i) {
+        if (obj instanceof module.exports.mixedInto[i]) {
           return true;
         }
       }
@@ -81,58 +57,42 @@ const iface = {
       }
 
       const wrapper = utils.wrapperForImpl(obj);
-      for (const isMixedInto of module.exports._mixedIntoPredicates) {
-        if (isMixedInto(wrapper)) {
+      for (let i = 0; i < module.exports.mixedInto.length; ++i) {
+        if (wrapper instanceof module.exports.mixedInto[i]) {
           return true;
         }
       }
     }
     return false;
   },
-  convert(obj, { context = "The provided value" } = {}) {
-    if (module.exports.is(obj)) {
-      return utils.implForWrapper(obj);
-    }
-    throw new TypeError(`${context} is not of type 'HTMLDListElement'.`);
-  },
-
   create(constructorArgs, privateData) {
     let obj = Object.create(HTMLDListElement.prototype);
-    obj = this.setup(obj, constructorArgs, privateData);
+    this.setup(obj, constructorArgs, privateData);
     return obj;
   },
   createImpl(constructorArgs, privateData) {
     let obj = Object.create(HTMLDListElement.prototype);
-    obj = this.setup(obj, constructorArgs, privateData);
+    this.setup(obj, constructorArgs, privateData);
     return utils.implForWrapper(obj);
   },
   _internalSetup(obj) {
     HTMLElement._internalSetup(obj);
+
   },
   setup(obj, constructorArgs, privateData) {
     if (!privateData) privateData = {};
-
     privateData.wrapper = obj;
 
     this._internalSetup(obj);
-    Object.defineProperty(obj, impl, {
-      value: new Impl.implementation(constructorArgs, privateData),
-      writable: false,
-      enumerable: false,
-      configurable: true
-    });
 
+    obj[impl] = new Impl.implementation(constructorArgs, privateData);
     obj[impl][utils.wrapperSymbol] = obj;
-    if (Impl.init) {
-      Impl.init(obj[impl], privateData);
-    }
-    return obj;
   },
   interface: HTMLDListElement,
   expose: {
-    Window: { HTMLDListElement }
+    Window: { HTMLDListElement: HTMLDListElement }
   }
-}; // iface
+};
 module.exports = iface;
 
 const Impl = require("../nodes/HTMLDListElement-impl.js");

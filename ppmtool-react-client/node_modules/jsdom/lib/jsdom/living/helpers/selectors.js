@@ -1,44 +1,30 @@
 "use strict";
 
-const DOMException = require("domexception");
-const nwsapi = require("nwsapi");
 const idlUtils = require("../generated/utils");
+const nwmatcher = require("nwmatcher/src/nwmatcher-noqsa");
+const domSymbolTree = require("./internal-constants").domSymbolTree;
 
-exports.matchesDontThrow = (elImpl, selector) => {
-  const document = elImpl._ownerDocument;
-
-  if (!document._nwsapiDontThrow) {
-    document._nwsapiDontThrow = nwsapi({
-      document,
-      DOMException
-    });
-    document._nwsapiDontThrow.configure({
-      LOGERRORS: false,
-      VERBOSITY: false,
-      IDS_DUPES: true,
-      MIXEDCASE: true
-    });
+// Internal method so you don't have to go through the public API
+exports.querySelector = function (parentNode, selectors) {
+  if (!domSymbolTree.hasChildren(parentNode) ||
+      (parentNode === parentNode._ownerDocument && !parentNode.documentElement)) {
+    // This allows us to avoid the explosion that occurs if you try to add nwmatcher to a document that is not yet
+    // initialized.
+    return null;
   }
 
-  return document._nwsapiDontThrow.match(selector, idlUtils.wrapperForImpl(elImpl));
+  return addNwmatcher(parentNode).first(selectors, idlUtils.wrapperForImpl(parentNode));
 };
 
-// nwsapi gets `document.documentElement` at creation-time, so we have to initialize lazily, since in the initial
+// nwmatcher gets `document.documentElement` at creation-time, so we have to initialize lazily, since in the initial
 // stages of Document initialization, there is no documentElement present yet.
-exports.addNwsapi = parentNode => {
+function addNwmatcher(parentNode) {
   const document = parentNode._ownerDocument;
 
-  if (!document._nwsapi) {
-    document._nwsapi = nwsapi({
-      document,
-      DOMException
-    });
-    document._nwsapi.configure({
-      LOGERRORS: false,
-      IDS_DUPES: true,
-      MIXEDCASE: true
-    });
+  if (!document._nwmatcher) {
+    document._nwmatcher = nwmatcher({ document });
+    document._nwmatcher.configure({ UNIQUE_ID: false });
   }
 
-  return document._nwsapi;
-};
+  return document._nwmatcher;
+}

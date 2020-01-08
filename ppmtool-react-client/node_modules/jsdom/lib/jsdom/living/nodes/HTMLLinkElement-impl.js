@@ -1,21 +1,16 @@
 "use strict";
-const { reflectURLAttribute } = require("../../utils");
 const HTMLElementImpl = require("./HTMLElement-impl").implementation;
+const LinkStyleImpl = require("./LinkStyle-impl").implementation;
 const idlUtils = require("../generated/utils");
-const { fetchStylesheet } = require("../helpers/stylesheets");
-const { parseURLToResultingURLRecord } = require("../helpers/document-base-url");
+const reflectURLAttribute = require("../../utils").reflectURLAttribute;
+const fetchStylesheet = require("../helpers/stylesheets").fetchStylesheet;
+const parseURLToResultingURLRecord = require("../helpers/document-base-url").parseURLToResultingURLRecord;
 const whatwgURL = require("whatwg-url");
 
 // Important reading: "appropriate times to obtain the resource" in
 // https://html.spec.whatwg.org/multipage/semantics.html#link-type-stylesheet
 
 class HTMLLinkElementImpl extends HTMLElementImpl {
-  constructor(args, privateData) {
-    super(args, privateData);
-
-    this.sheet = null;
-  }
-
   _attach() {
     super._attach();
 
@@ -45,6 +40,8 @@ class HTMLLinkElementImpl extends HTMLElementImpl {
   }
 }
 
+idlUtils.mixin(HTMLLinkElementImpl.prototype, LinkStyleImpl.prototype);
+
 module.exports = {
   implementation: HTMLLinkElementImpl
 };
@@ -57,13 +54,13 @@ function obtainTheResource(el) {
   }
 
   const url = parseURLToResultingURLRecord(href, el._ownerDocument);
-  if (url === null) {
+  if (url === "failure") {
     return;
   }
 
   const serialized = whatwgURL.serializeURL(url);
 
-  fetchStylesheet(el, serialized);
+  fetchStylesheet(el, serialized, el.sheet);
 }
 
 function isExternalResourceLink(el) {

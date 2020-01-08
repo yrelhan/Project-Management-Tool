@@ -1,11 +1,10 @@
 "use strict";
 
-const { mixin } = require("../../utils");
+const idlUtils = require("../generated/utils");
 const NodeImpl = require("./Node-impl").implementation;
 const ChildNodeImpl = require("./ChildNode-impl").implementation;
 const NonDocumentTypeChildNodeImpl = require("./NonDocumentTypeChildNode-impl").implementation;
-const DOMException = require("domexception");
-const { TEXT_NODE } = require("../node-type");
+const DOMException = require("../../web-idl/DOMException");
 
 class CharacterDataImpl extends NodeImpl {
   constructor(args, privateData) {
@@ -18,7 +17,7 @@ class CharacterDataImpl extends NodeImpl {
     return this._data;
   }
   set data(data) {
-    this.replaceData(0, this.length, data);
+    this._data = data;
   }
 
   get length() {
@@ -26,10 +25,10 @@ class CharacterDataImpl extends NodeImpl {
   }
 
   substringData(offset, count) {
-    const { length } = this;
+    const length = this.length;
 
     if (offset > length) {
-      throw new DOMException("The index is not in the allowed range.", "IndexSizeError");
+      throw new DOMException(DOMException.INDEX_SIZE_ERR);
     }
 
     if (offset + count > length) {
@@ -52,10 +51,10 @@ class CharacterDataImpl extends NodeImpl {
   }
 
   replaceData(offset, count, data) {
-    const { length } = this;
+    const length = this.length;
 
     if (offset > length) {
-      throw new DOMException("The index is not in the allowed range.", "IndexSizeError");
+      throw new DOMException(DOMException.INDEX_SIZE_ERR);
     }
 
     if (offset + count > length) {
@@ -68,15 +67,11 @@ class CharacterDataImpl extends NodeImpl {
     this._data = start + data + end;
 
     // TODO: range stuff
-
-    if (this.nodeType === TEXT_NODE && this.parentNode) {
-      this.parentNode._childTextContentChangeSteps();
-    }
   }
 }
 
-mixin(CharacterDataImpl.prototype, NonDocumentTypeChildNodeImpl.prototype);
-mixin(CharacterDataImpl.prototype, ChildNodeImpl.prototype);
+idlUtils.mixin(CharacterDataImpl.prototype, NonDocumentTypeChildNodeImpl.prototype);
+idlUtils.mixin(CharacterDataImpl.prototype, ChildNodeImpl.prototype);
 
 module.exports = {
   implementation: CharacterDataImpl

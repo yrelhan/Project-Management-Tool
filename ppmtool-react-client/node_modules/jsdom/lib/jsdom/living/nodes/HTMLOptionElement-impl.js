@@ -1,8 +1,10 @@
 "use strict";
+
 const HTMLElementImpl = require("./HTMLElement-impl").implementation;
-const { stripAndCollapseASCIIWhitespace } = require("../helpers/strings");
-const { domSymbolTree } = require("../helpers/internal-constants");
-const { closest } = require("../helpers/traversal");
+const idlUtils = require("../generated/utils");
+const stripAndCollapseASCIIWhitespace = require("../helpers/strings").stripAndCollapseASCIIWhitespace;
+const domSymbolTree = require("../helpers/internal-constants").domSymbolTree;
+const closest = require("../helpers/traversal").closest;
 
 class HTMLOptionElementImpl extends HTMLElementImpl {
   constructor(args, privateData) {
@@ -18,7 +20,9 @@ class HTMLOptionElementImpl extends HTMLElementImpl {
     const select = this._selectNode;
 
     if (select && !select.hasAttribute("multiple")) {
-      for (const option of select.options) {
+      const o = select.options;
+      for (let i = 0; i < o.length; i++) {
+        const option = idlUtils.implForWrapper(o[i]);
         if (option !== this) {
           option._selectedness = false;
         }
@@ -33,7 +37,8 @@ class HTMLOptionElementImpl extends HTMLElementImpl {
   }
   _attrModified(name) {
     if (!this._dirtyness && name === "selected") {
-      this._selectedness = this.hasAttribute("selected");
+      const wrapper = idlUtils.wrapperForImpl(this);
+      this._selectedness = wrapper.defaultSelected;
       if (this._selectedness) {
         this._removeOtherSelectedness();
       }
@@ -78,7 +83,7 @@ class HTMLOptionElementImpl extends HTMLElementImpl {
       return 0;
     }
 
-    return select.options.indexOf(this);
+    return Array.prototype.indexOf.call(select.options, idlUtils.wrapperForImpl(this));
   }
   get selected() {
     return this._selectedness;

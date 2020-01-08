@@ -1,7 +1,7 @@
 "use strict";
 
 const HTMLElementImpl = require("./HTMLElement-impl").implementation;
-const { reflectURLAttribute } = require("../../utils");
+const reflectURLAttribute = require("../../utils").reflectURLAttribute;
 
 class HTMLTrackElementImpl extends HTMLElementImpl {
   get readyState() {

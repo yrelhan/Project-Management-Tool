@@ -1,8 +1,10 @@
-# abab [![npm version](https://badge.fury.io/js/abab.svg)](https://www.npmjs.com/package/abab) [![Build Status](https://travis-ci.org/jsdom/abab.svg?branch=master)](https://travis-ci.org/jsdom/abab)
+# abab
 
-A JavaScript module that implements `window.atob` and `window.btoa` according the forgiving-base64 algorithm in the [Infra Standard](https://infra.spec.whatwg.org/#forgiving-base64). The original code was forked from [w3c/web-platform-tests](https://github.com/w3c/web-platform-tests/blob/master/html/webappapis/atob/base64.html).
+[![npm version](https://badge.fury.io/js/abab.svg)](https://www.npmjs.com/package/abab) [![Build Status](https://travis-ci.org/jsdom/abab.svg?branch=master)](https://travis-ci.org/jsdom/abab)
 
-Compatibility: Node.js version 3+ and all major browsers.
+A module that implements `window.atob` and `window.btoa` according to the [WHATWG spec](https://html.spec.whatwg.org/multipage/webappapis.html#atob). The code is originally from [w3c/web-platform-tests](https://github.com/w3c/web-platform-tests/blob/master/html/webappapis/atob/base64.html).
+
+Compatibility: Node.js version 3+ and all major browsers (using browserify or webpack)
 
 Install with `npm`:
 
@@ -15,14 +17,14 @@ npm install abab
 ### `btoa` (base64 encode)
 
 ```js
-const { btoa } = require('abab');
+const btoa = require('abab').btoa;
 btoa('Hello, world!'); // 'SGVsbG8sIHdvcmxkIQ=='
 ```
 
 ### `atob` (base64 decode)
 
 ```js 
-const { atob } = require('abab');
+const atob = require('abab').atob;
 atob('SGVsbG8sIHdvcmxkIQ=='); // 'Hello, world!'
 ```
 
@@ -35,8 +37,8 @@ atob('SGVsbG8sIHdvcmxkIQ=='); // 'Hello, world!'
 If you want to include just one of the methods to save bytes in your client-side code, you can `require` the desired module directly.
 
 ```js
-const atob = require('abab/lib/atob');
-const btoa = require('abab/lib/btoa');
+var atob = require('abab/lib/atob');
+var btoa = require('abab/lib/btoa');
 ```
 
 -----

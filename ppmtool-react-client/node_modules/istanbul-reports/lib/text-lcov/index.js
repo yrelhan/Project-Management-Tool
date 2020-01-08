@@ -2,8 +2,8 @@
  Copyright 2012-2015, Yahoo Inc.
  Copyrights licensed under the New BSD License. See the accompanying LICENSE file for terms.
  */
-const util = require('util');
-const LcovOnly = require('../lcovonly');
+var util = require('util'),
+    LcovOnly = require('../lcovonly');
 
 function TextLcov(opts) {
     opts.file = '-';

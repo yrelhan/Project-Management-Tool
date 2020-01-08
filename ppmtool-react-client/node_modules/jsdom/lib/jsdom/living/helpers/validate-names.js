@@ -1,17 +1,14 @@
 "use strict";
 const xnv = require("xml-name-validator");
-const DOMException = require("domexception");
-const { XML_NS, XMLNS_NS } = require("../helpers/namespaces");
+const DOMException = require("../../web-idl/DOMException");
 
 // https://dom.spec.whatwg.org/#validate
 
 exports.name = function (name) {
   const result = xnv.name(name);
   if (!result.success) {
-    throw new DOMException(
-      "\"" + name + "\" did not match the Name production: " + result.error,
-      "InvalidCharacterError"
-    );
+    throw new DOMException(DOMException.INVALID_CHARACTER_ERR,
+      "\"" + name + "\" did not match the Name production: " + result.error);
   }
 };
 
@@ -20,10 +17,8 @@ exports.qname = function (qname) {
 
   const result = xnv.qname(qname);
   if (!result.success) {
-    throw new DOMException(
-      "\"" + qname + "\" did not match the QName production: " + result.error,
-      "InvalidCharacterError"
-    );
+    throw new DOMException(DOMException.NAMESPACE_ERR,
+      "\"" + qname + "\" did not match the QName production: " + result.error);
   }
 };
 
@@ -44,29 +39,23 @@ exports.validateAndExtract = function (namespace, qualifiedName) {
   }
 
   if (prefix !== null && namespace === null) {
-    throw new DOMException(
-      "A namespace was given but a prefix was also extracted from the qualifiedName",
-      "NamespaceError"
-    );
+    throw new DOMException(DOMException.NAMESPACE_ERR,
+      "A namespace was given but a prefix was also extracted from the qualifiedName");
   }
 
-  if (prefix === "xml" && namespace !== XML_NS) {
-    throw new DOMException(
-      "A prefix of \"xml\" was given but the namespace was not the XML namespace",
-      "NamespaceError"
-    );
+  if (prefix === "xml" && namespace !== "http://www.w3.org/XML/1998/namespace") {
+    throw new DOMException(DOMException.NAMESPACE_ERR,
+      "A prefix of \"xml\" was given but the namespace was not the XML namespace");
   }
 
-  if ((qualifiedName === "xmlns" || prefix === "xmlns") && namespace !== XMLNS_NS) {
-    throw new DOMException("A prefix or qualifiedName of \"xmlns\" was given but the namespace was not the XMLNS " +
-      "namespace", "NamespaceError");
+  if ((qualifiedName === "xmlns" || prefix === "xmlns") && namespace !== "http://www.w3.org/2000/xmlns/") {
+    throw new DOMException(DOMException.NAMESPACE_ERR,
+      "A prefix or qualifiedName of \"xmlns\" was given but the namespace was not the XMLNS namespace");
   }
 
-  if (namespace === XMLNS_NS && qualifiedName !== "xmlns" && prefix !== "xmlns") {
-    throw new DOMException(
-      "The XMLNS namespace was given but neither the prefix nor qualifiedName was \"xmlns\"",
-      "NamespaceError"
-    );
+  if (namespace === "http://www.w3.org/2000/xmlns/" && qualifiedName !== "xmlns" && prefix !== "xmlns") {
+    throw new DOMException(DOMException.NAMESPACE_ERR,
+      "The XMLNS namespace was given but neither the prefix nor qualifiedName was \"xmlns\"");
   }
 
   return { namespace, prefix, localName };

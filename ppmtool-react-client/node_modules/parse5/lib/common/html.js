@@ -20,12 +20,6 @@ exports.ATTRS = {
     SIZE: 'size'
 };
 
-exports.DOCUMENT_MODE = {
-    NO_QUIRKS: 'no-quirks',
-    QUIRKS: 'quirks',
-    LIMITED_QUIRKS: 'limited-quirks'
-};
-
 var $ = exports.TAG_NAMES = {
     A: 'a',
     ADDRESS: 'address',
@@ -50,6 +44,7 @@ var $ = exports.TAG_NAMES = {
     CODE: 'code',
     COL: 'col',
     COLGROUP: 'colgroup',
+    COMMAND: 'command',
 
     DD: 'dd',
     DESC: 'desc',
@@ -90,6 +85,7 @@ var $ = exports.TAG_NAMES = {
     IMAGE: 'image',
     INPUT: 'input',
     IFRAME: 'iframe',
+    ISINDEX: 'isindex',
 
     KEYGEN: 'keygen',
 
@@ -128,10 +124,8 @@ var $ = exports.TAG_NAMES = {
     PLAINTEXT: 'plaintext',
     PRE: 'pre',
 
-    RB: 'rb',
     RP: 'rp',
     RT: 'rt',
-    RTC: 'rtc',
     RUBY: 'ruby',
 
     S: 's',
@@ -173,9 +167,9 @@ var $ = exports.TAG_NAMES = {
     XMP: 'xmp'
 };
 
-var SPECIAL_ELEMENTS = exports.SPECIAL_ELEMENTS = Object.create(null);
+var SPECIAL_ELEMENTS = exports.SPECIAL_ELEMENTS = {};
 
-SPECIAL_ELEMENTS[NS.HTML] = Object.create(null);
+SPECIAL_ELEMENTS[NS.HTML] = {};
 SPECIAL_ELEMENTS[NS.HTML][$.ADDRESS] = true;
 SPECIAL_ELEMENTS[NS.HTML][$.APPLET] = true;
 SPECIAL_ELEMENTS[NS.HTML][$.AREA] = true;
@@ -220,12 +214,14 @@ SPECIAL_ELEMENTS[NS.HTML][$.HTML] = true;
 SPECIAL_ELEMENTS[NS.HTML][$.IFRAME] = true;
 SPECIAL_ELEMENTS[NS.HTML][$.IMG] = true;
 SPECIAL_ELEMENTS[NS.HTML][$.INPUT] = true;
+SPECIAL_ELEMENTS[NS.HTML][$.ISINDEX] = true;
 SPECIAL_ELEMENTS[NS.HTML][$.LI] = true;
 SPECIAL_ELEMENTS[NS.HTML][$.LINK] = true;
 SPECIAL_ELEMENTS[NS.HTML][$.LISTING] = true;
 SPECIAL_ELEMENTS[NS.HTML][$.MAIN] = true;
 SPECIAL_ELEMENTS[NS.HTML][$.MARQUEE] = true;
 SPECIAL_ELEMENTS[NS.HTML][$.MENU] = true;
+SPECIAL_ELEMENTS[NS.HTML][$.MENUITEM] = true;
 SPECIAL_ELEMENTS[NS.HTML][$.META] = true;
 SPECIAL_ELEMENTS[NS.HTML][$.NAV] = true;
 SPECIAL_ELEMENTS[NS.HTML][$.NOEMBED] = true;
@@ -258,7 +254,7 @@ SPECIAL_ELEMENTS[NS.HTML][$.UL] = true;
 SPECIAL_ELEMENTS[NS.HTML][$.WBR] = true;
 SPECIAL_ELEMENTS[NS.HTML][$.XMP] = true;
 
-SPECIAL_ELEMENTS[NS.MATHML] = Object.create(null);
+SPECIAL_ELEMENTS[NS.MATHML] = {};
 SPECIAL_ELEMENTS[NS.MATHML][$.MI] = true;
 SPECIAL_ELEMENTS[NS.MATHML][$.MO] = true;
 SPECIAL_ELEMENTS[NS.MATHML][$.MN] = true;
@@ -266,7 +262,7 @@ SPECIAL_ELEMENTS[NS.MATHML][$.MS] = true;
 SPECIAL_ELEMENTS[NS.MATHML][$.MTEXT] = true;
 SPECIAL_ELEMENTS[NS.MATHML][$.ANNOTATION_XML] = true;
 
-SPECIAL_ELEMENTS[NS.SVG] = Object.create(null);
+SPECIAL_ELEMENTS[NS.SVG] = {};
 SPECIAL_ELEMENTS[NS.SVG][$.TITLE] = true;
 SPECIAL_ELEMENTS[NS.SVG][$.FOREIGN_OBJECT] = true;
 SPECIAL_ELEMENTS[NS.SVG][$.DESC] = true;

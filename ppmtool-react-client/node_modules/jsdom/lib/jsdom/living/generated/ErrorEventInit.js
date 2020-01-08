@@ -3,80 +3,54 @@
 const conversions = require("webidl-conversions");
 const utils = require("./utils.js");
 
-const EventInit = require("./EventInit.js");
+const EventInit = require("./EventInit");
 
 module.exports = {
-  convertInherit(obj, ret, { context = "The provided value" } = {}) {
-    EventInit.convertInherit(obj, ret, { context });
+  convertInherit(obj, ret) {
+    EventInit.convertInherit(obj, ret);
+    let key, value;
 
-    {
-      const key = "colno";
-      let value = obj === undefined || obj === null ? undefined : obj[key];
-      if (value !== undefined) {
-        value = conversions["unsigned long"](value, { context: context + " has member colno that" });
-
-        ret[key] = value;
-      } else {
-        ret[key] = 0;
-      }
+    key = "colno";
+    value = obj === undefined || obj === null ? undefined : obj[key];
+    if (value !== undefined) {
+      ret[key] = conversions["unsigned long"](value);
     }
 
-    {
-      const key = "error";
-      let value = obj === undefined || obj === null ? undefined : obj[key];
-      if (value !== undefined) {
-        value = conversions["any"](value, { context: context + " has member error that" });
-
-        ret[key] = value;
-      } else {
-        ret[key] = null;
-      }
+    key = "error";
+    value = obj === undefined || obj === null ? undefined : obj[key];
+    if (value !== undefined) {
+      ret[key] = conversions["any"](value);
     }
 
-    {
-      const key = "filename";
-      let value = obj === undefined || obj === null ? undefined : obj[key];
-      if (value !== undefined) {
-        value = conversions["USVString"](value, { context: context + " has member filename that" });
-
-        ret[key] = value;
-      } else {
-        ret[key] = "";
-      }
+    key = "filename";
+    value = obj === undefined || obj === null ? undefined : obj[key];
+    if (value !== undefined) {
+      ret[key] = conversions["DOMString"](value);
     }
 
-    {
-      const key = "lineno";
-      let value = obj === undefined || obj === null ? undefined : obj[key];
-      if (value !== undefined) {
-        value = conversions["unsigned long"](value, { context: context + " has member lineno that" });
-
-        ret[key] = value;
-      } else {
-        ret[key] = 0;
-      }
+    key = "lineno";
+    value = obj === undefined || obj === null ? undefined : obj[key];
+    if (value !== undefined) {
+      ret[key] = conversions["unsigned long"](value);
     }
 
-    {
-      const key = "message";
-      let value = obj === undefined || obj === null ? undefined : obj[key];
-      if (value !== undefined) {
-        value = conversions["DOMString"](value, { context: context + " has member message that" });
-
-        ret[key] = value;
-      } else {
-        ret[key] = "";
-      }
+    key = "message";
+    value = obj === undefined || obj === null ? undefined : obj[key];
+    if (value !== undefined) {
+      ret[key] = conversions["DOMString"](value);
     }
   },
 
-  convert(obj, { context = "The provided value" } = {}) {
-    if (obj !== undefined && typeof obj !== "object" && typeof obj !== "function") {
-      throw new TypeError(`${context} is not an object.`);
+  convert(obj) {
+    if (obj !== undefined && typeof obj !== "object") {
+      throw new TypeError("Dictionary has to be an object");
+    }
+    if (obj instanceof Date || obj instanceof RegExp) {
+      throw new TypeError("Dictionary may not be a Date or RegExp object");
     }
 
     const ret = Object.create(null);
-    module.exports.convertInherit(obj, ret, { context });
+    module.exports.convertInherit(obj, ret);
     return ret;
   }
 };

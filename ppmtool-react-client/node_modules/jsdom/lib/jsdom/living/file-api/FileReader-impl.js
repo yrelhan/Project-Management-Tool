@@ -1,12 +1,12 @@
 "use strict";
 
 const whatwgEncoding = require("whatwg-encoding");
-const MIMEType = require("whatwg-mimetype");
+const parseContentType = require("content-type-parser");
 const querystring = require("querystring");
-const DOMException = require("domexception");
+const DOMException = require("../../web-idl/DOMException");
 const EventTargetImpl = require("../events/EventTarget-impl").implementation;
+const Blob = require("../generated/Blob");
 const ProgressEvent = require("../generated/ProgressEvent");
-const { setupForSimpleEventAccessors } = require("../helpers/create-event-accessor");
 
 const READY_STATES = Object.freeze({
   EMPTY: 0,
@@ -14,9 +14,7 @@ const READY_STATES = Object.freeze({
   DONE: 2
 });
 
-const events = ["loadstart", "progress", "load", "abort", "error", "loadend"];
-
-class FileReaderImpl extends EventTargetImpl {
+exports.implementation = class FileReaderImpl extends EventTargetImpl {
   constructor(args, privateData) {
     super([], privateData);
 
@@ -24,15 +22,18 @@ class FileReaderImpl extends EventTargetImpl {
     this.readyState = READY_STATES.EMPTY;
     this.result = null;
 
+    this.onloadstart = null;
+    this.onprogress = null;
+    this.onload = null;
+    this.onabort = null;
+    this.onerror = null;
+    this.onloadend = null;
+
     this._ownerDocument = privateData.window.document;
-    this._terminated = false;
   }
 
   readAsArrayBuffer(file) {
     this._readFile(file, "buffer");
-  }
-  readAsBinaryString(file) {
-    this._readFile(file, "binaryString");
   }
   readAsDataURL(file) {
     this._readFile(file, "dataURL");
@@ -42,17 +43,15 @@ class FileReaderImpl extends EventTargetImpl {
   }
 
   abort() {
-    if (this.readyState === READY_STATES.EMPTY || this.readyState === READY_STATES.DONE) {
+    if (this.readyState === READY_STATES.DONE || this.readyState === READY_STATES.EMPTY) {
       this.result = null;
       return;
     }
 
     if (this.readyState === READY_STATES.LOADING) {
       this.readyState = READY_STATES.DONE;
-      this.result = null;
     }
 
-    this._terminated = true;
     this._fireProgressEvent("abort");
     this._fireProgressEvent("loadend");
   }
@@ -63,23 +62,25 @@ class FileReaderImpl extends EventTargetImpl {
   }
 
   _readFile(file, format, encoding) {
+    if (!Blob.isImpl(file)) {
+      throw new TypeError("file argument must be a Blob");
+    }
+
     if (this.readyState === READY_STATES.LOADING) {
-      throw new DOMException("The object is in an invalid state.", "InvalidStateError");
+      throw new DOMException(DOMException.INVALID_STATE_ERR);
+    }
+    if (file.isClosed) {
+      this.error = new DOMException(DOMException.INVALID_STATE_ERR);
+      this._fireProgressEvent("error");
     }
 
     this.readyState = READY_STATES.LOADING;
+    this._fireProgressEvent("loadstart");
 
-    setImmediate(() => {
-      if (this._terminated) {
-        this._terminated = false;
-        return;
-      }
-
-      this._fireProgressEvent("loadstart");
-
+    process.nextTick(() => {
       let data = file._buffer;
       if (!data) {
-        data = Buffer.alloc(0);
+        data = new Buffer("");
       }
       this._fireProgressEvent("progress", {
         lengthComputable: !isNaN(file.size),
@@ -87,32 +88,22 @@ class FileReaderImpl extends EventTargetImpl {
         loaded: data.length
       });
 
-      setImmediate(() => {
-        if (this._terminated) {
-          this._terminated = false;
-          return;
-        }
-
+      process.nextTick(() => {
         switch (format) {
           default:
           case "buffer": {
             this.result = (new Uint8Array(data)).buffer;
             break;
           }
-          case "binaryString": {
-            this.result = data.toString("binary");
-            break;
-          }
           case "dataURL": {
-            // Spec seems very unclear here; see https://github.com/whatwg/fetch/issues/665#issuecomment-362930079.
             let dataUrl = "data:";
-            const contentType = MIMEType.parse(file.type);
-            if (contentType && contentType.type === "text") {
+            const contentType = parseContentType(file.type);
+            if (contentType && contentType.isText()) {
               const fallbackEncoding = whatwgEncoding.getBOMEncoding(data) ||
-                whatwgEncoding.labelToName(contentType.parameters.get("charset")) || "UTF-8";
+                whatwgEncoding.labelToName(contentType.get("charset")) || "UTF-8";
               const decoded = whatwgEncoding.decode(data, fallbackEncoding);
 
-              contentType.parameters.set("charset", encoding);
+              contentType.set("charset", encoding);
               dataUrl += contentType.toString();
               dataUrl += ",";
               dataUrl += querystring.escape(decoded);
@@ -137,7 +128,4 @@ class FileReaderImpl extends EventTargetImpl {
       });
     });
   }
-}
-setupForSimpleEventAccessors(FileReaderImpl.prototype, events);
-
-exports.implementation = FileReaderImpl;
+};

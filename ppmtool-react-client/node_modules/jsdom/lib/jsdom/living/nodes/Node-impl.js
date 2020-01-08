@@ -1,21 +1,25 @@
 "use strict";
 
 const EventTargetImpl = require("../events/EventTarget-impl").implementation;
-const { domSymbolTree } = require("../helpers/internal-constants");
-const { simultaneousIterators } = require("../../utils");
-const DOMException = require("domexception");
+const idlUtils = require("../generated/utils");
+
+const domSymbolTree = require("../helpers/internal-constants").domSymbolTree;
+const simultaneousIterators = require("../../utils").simultaneousIterators;
+const DOMException = require("../../web-idl/DOMException");
 const NODE_TYPE = require("../node-type");
 const NODE_DOCUMENT_POSITION = require("../node-document-position");
-const NodeList = require("../generated/NodeList");
-const { documentBaseURLSerialized } = require("../helpers/document-base-url");
-const { clone, locateNamespacePrefix, locateNamespace } = require("../node");
+const createLiveNodeList = require("../node-list").createLive;
+const updateNodeList = require("../node-list").update;
+const updateHTMLCollection = require("../html-collection").update;
+const documentBaseURLSerialized = require("../helpers/document-base-url").documentBaseURLSerialized;
+const cloneNode = require("../node").clone;
 const attributes = require("../attributes");
 
 function isObsoleteNodeType(node) {
   return node.nodeType === NODE_TYPE.ENTITY_NODE ||
     node.nodeType === NODE_TYPE.ENTITY_REFERENCE_NODE ||
     node.nodeType === NODE_TYPE.NOTATION_NODE ||
-  //  node.nodeType === NODE_TYPE.ATTRIBUTE_NODE ||  // this is missing how do we handle?
+//  node.nodeType === NODE_TYPE.ATTRIBUTE_NODE ||  // this is missing how do we handle?
     node.nodeType === NODE_TYPE.CDATA_SECTION_NODE;
 }
 
@@ -74,6 +78,7 @@ class NodeImpl extends EventTargetImpl {
 
     domSymbolTree.initialize(this);
 
+    this._core = privateData.core;
     this._ownerDocument = privateData.ownerDocument;
 
     this._childNodesList = null;
@@ -82,17 +87,28 @@ class NodeImpl extends EventTargetImpl {
     this._memoizedQueries = {};
   }
 
-  get parentNode() {
-    return domSymbolTree.parent(this);
+  get nodeValue() {
+    if (this.nodeType === NODE_TYPE.TEXT_NODE ||
+      this.nodeType === NODE_TYPE.COMMENT_NODE ||
+      this.nodeType === NODE_TYPE.CDATA_SECTION_NODE ||
+      this.nodeType === NODE_TYPE.PROCESSING_INSTRUCTION_NODE) {
+      return this._data;
+    }
+
+    return null;
   }
 
-  getRootNode() {
-    // ignore option for composed, because of no Shadow DOM support
-    let root;
-    for (const ancestor of domSymbolTree.ancestorsIterator(this)) {
-      root = ancestor;
+  set nodeValue(value) {
+    if (this.nodeType === NODE_TYPE.TEXT_NODE ||
+      this.nodeType === NODE_TYPE.COMMENT_NODE ||
+      this.nodeType === NODE_TYPE.CDATA_SECTION_NODE ||
+      this.nodeType === NODE_TYPE.PROCESSING_INSTRUCTION_NODE) {
+      this.replaceData(0, this.length, value);
     }
-    return root;
+  }
+
+  get parentNode() {
+    return domSymbolTree.parent(this);
   }
 
   get nodeName() {
@@ -123,15 +139,6 @@ class NodeImpl extends EventTargetImpl {
     return domSymbolTree.firstChild(this);
   }
 
-  get isConnected() {
-    for (const ancestor of domSymbolTree.ancestorsIterator(this)) {
-      if (ancestor.nodeType === NODE_TYPE.DOCUMENT_NODE) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   get ownerDocument() {
     return this.nodeType === NODE_TYPE.DOCUMENT_NODE ? null : this._ownerDocument;
   }
@@ -142,12 +149,9 @@ class NodeImpl extends EventTargetImpl {
 
   get childNodes() {
     if (!this._childNodesList) {
-      this._childNodesList = NodeList.createImpl([], {
-        element: this,
-        query: () => domSymbolTree.childrenToArray(this)
-      });
+      this._childNodesList = createLiveNodeList(this, () => domSymbolTree.childrenToArray(this));
     } else {
-      this._childNodesList._update();
+      updateNodeList(this._childNodesList);
     }
 
     return this._childNodesList;
@@ -162,13 +166,21 @@ class NodeImpl extends EventTargetImpl {
   }
 
   insertBefore(newChildImpl, refChildImpl) {
+    // TODO branding
+    if (!newChildImpl || !(newChildImpl instanceof NodeImpl)) {
+      throw new TypeError("First argument to Node.prototype.insertBefore must be a Node");
+    }
+    if (refChildImpl !== null && !(refChildImpl instanceof NodeImpl)) {
+      throw new TypeError("Second argument to Node.prototype.insertBefore must be a Node or null or undefined");
+    }
+
     // DocumentType must be implicitly adopted
     if (newChildImpl.nodeType === NODE_TYPE.DOCUMENT_TYPE_NODE) {
       newChildImpl._ownerDocument = this._ownerDocument;
     }
 
     if (newChildImpl.nodeType && newChildImpl.nodeType === NODE_TYPE.ATTRIBUTE_NODE) {
-      throw new DOMException("The operation would yield an incorrect node tree.", "HierarchyRequestError");
+      throw new DOMException(DOMException.HIERARCHY_REQUEST_ERR);
     }
 
     if (this._ownerDocument !== newChildImpl._ownerDocument) {
@@ -178,7 +190,7 @@ class NodeImpl extends EventTargetImpl {
       // search for parents matching the newChild
       for (const ancestor of domSymbolTree.ancestorsIterator(this)) {
         if (ancestor === newChildImpl) {
-          throw new DOMException("The operation would yield an incorrect node tree.", "HierarchyRequestError");
+          throw new DOMException(DOMException.HIERARCHY_REQUEST_ERR);
         }
       }
     }
@@ -203,16 +215,13 @@ class NodeImpl extends EventTargetImpl {
         domSymbolTree.appendChild(this, newChildImpl);
       } else {
         if (domSymbolTree.parent(refChildImpl) !== this) {
-          throw new DOMException("The object can not be found here.", "NotFoundError");
+          throw new DOMException(DOMException.NOT_FOUND_ERR);
         }
 
         domSymbolTree.insertBefore(refChildImpl, newChildImpl);
       }
 
       this._modified();
-      if (newChildImpl.nodeType === NODE_TYPE.TEXT_NODE) {
-        this._childTextContentChangeSteps();
-      }
 
       if (this._attached && newChildImpl._attach) {
         newChildImpl._attach();
@@ -231,16 +240,12 @@ class NodeImpl extends EventTargetImpl {
     }
 
     if (this._childrenList) {
-      this._childrenList._update();
+      updateHTMLCollection(this._childrenList);
     }
     if (this._childNodesList) {
-      this._childNodesList._update();
+      updateNodeList(this._childNodesList);
     }
     this._clearMemoizedQueries();
-  }
-
-  _childTextContentChangeSteps() {
-    // Default: do nothing
   }
 
   _clearMemoizedQueries() {
@@ -266,6 +271,17 @@ class NodeImpl extends EventTargetImpl {
   }
 
   replaceChild(node, child) {
+    if (arguments.length < 2) {
+      throw new TypeError("Not enough arguments to Node.prototype.replaceChild");
+    }
+    // TODO branding
+    if (!node || !(node instanceof NodeImpl)) {
+      throw new TypeError("First argument to Node.prototype.replaceChild must be a Node");
+    }
+    if (!child || !(child instanceof NodeImpl)) {
+      throw new TypeError("Second argument to Node.prototype.replaceChild must be a Node");
+    }
+
     this.insertBefore(node, child);
     return this.removeChild(child);
   }
@@ -296,23 +312,25 @@ class NodeImpl extends EventTargetImpl {
 
   removeChild(/* Node */ oldChildImpl) {
     if (!oldChildImpl || domSymbolTree.parent(oldChildImpl) !== this) {
-      throw new DOMException("The object can not be found here.", "NotFoundError");
+      throw new DOMException(DOMException.NOT_FOUND_ERR);
     }
 
-    if (this._ownerDocument) {
-      this._ownerDocument._runPreRemovingSteps(oldChildImpl);
-    }
+    const oldPreviousSibling = oldChildImpl.previousSibling;
     domSymbolTree.remove(oldChildImpl);
     this._modified();
     oldChildImpl._detach();
     this._descendantRemoved(this, oldChildImpl);
-    if (oldChildImpl.nodeType === NODE_TYPE.TEXT_NODE) {
-      this._childTextContentChangeSteps();
+    if (this._ownerDocument) {
+      this._ownerDocument._runRemovingSteps(oldChildImpl, this, oldPreviousSibling);
     }
     return oldChildImpl;
   } // raises(DOMException);
 
   appendChild(newChild) {
+    if (!("nodeType" in newChild)) {
+      throw new TypeError("First argument to Node.prototype.appendChild must be a Node");
+    }
+
     return this.insertBefore(newChild, null);
   }
 
@@ -326,11 +344,6 @@ class NodeImpl extends EventTargetImpl {
         child.normalize();
       }
 
-      // Normalize should only transform Text nodes, and nothing else.
-      if (child.nodeType !== NODE_TYPE.TEXT_NODE) {
-        continue;
-      }
-
       if (child.nodeValue === "") {
         this.removeChild(child);
         continue;
@@ -338,7 +351,7 @@ class NodeImpl extends EventTargetImpl {
 
       const prevChild = domSymbolTree.previousSibling(child);
 
-      if (prevChild && prevChild.nodeType === NODE_TYPE.TEXT_NODE) {
+      if (prevChild && prevChild.nodeType === NODE_TYPE.TEXT_NODE && child.nodeType === NODE_TYPE.TEXT_NODE) {
         // merge text nodes
         prevChild.appendData(child.nodeValue);
         this.removeChild(child);
@@ -359,6 +372,10 @@ class NodeImpl extends EventTargetImpl {
     // Let reference be the context object.
     const reference = this;
 
+    if (!(otherImpl instanceof NodeImpl)) {
+      throw new Error("Comparing position against non-Node values is not allowed");
+    }
+
     if (isObsoleteNodeType(reference) || isObsoleteNodeType(otherImpl)) {
       throw new Error("Obsolete node type");
     }
@@ -378,50 +395,8 @@ class NodeImpl extends EventTargetImpl {
     return result;
   }
 
-  lookupPrefix(namespace) {
-    if (namespace === null || namespace === "") {
-      return null;
-    }
-
-    switch (this.nodeType) {
-      case NODE_TYPE.ELEMENT_NODE: {
-        return locateNamespacePrefix(this, namespace);
-      }
-      case NODE_TYPE.DOCUMENT_NODE: {
-        return this.documentElement !== null ? locateNamespacePrefix(this.documentElement, namespace) : null;
-      }
-      case NODE_TYPE.DOCUMENT_TYPE_NODE:
-      case NODE_TYPE.DOCUMENT_FRAGMENT_NODE: {
-        return null;
-      }
-      case NODE_TYPE.ATTRIBUTE_NODE: {
-        return this._element !== null ? locateNamespacePrefix(this._element, namespace) : null;
-      }
-      default: {
-        return this.parentElement !== null ? locateNamespacePrefix(this.parentElement, namespace) : null;
-      }
-    }
-  }
-
-  lookupNamespaceURI(prefix) {
-    if (prefix === "") {
-      prefix = null;
-    }
-
-    return locateNamespace(this, prefix);
-  }
-
-  isDefaultNamespace(namespace) {
-    if (namespace === "") {
-      namespace = null;
-    }
-
-    const defaultNamespace = locateNamespace(this, null);
-    return defaultNamespace === namespace;
-  }
-
   contains(other) {
-    if (other === null) {
+    if (!(other instanceof NodeImpl)) {
       return false;
     } else if (this === other) {
       return true;
@@ -442,117 +417,61 @@ class NodeImpl extends EventTargetImpl {
     return nodeEquals(this, node);
   }
 
-  isSameNode(node) {
-    if (this === node) {
-      return true;
-    }
-
-    return false;
-  }
-
   cloneNode(deep) {
     deep = Boolean(deep);
 
-    return clone(this, undefined, deep);
-  }
-
-  get nodeValue() {
-    switch (this.nodeType) {
-      case NODE_TYPE.ATTRIBUTE_NODE: {
-        return this._value;
-      }
-      case NODE_TYPE.TEXT_NODE:
-      case NODE_TYPE.CDATA_SECTION_NODE: // CDATASection is a subclass of Text
-      case NODE_TYPE.PROCESSING_INSTRUCTION_NODE:
-      case NODE_TYPE.COMMENT_NODE: {
-        return this._data;
-      }
-      default: {
-        return null;
-      }
-    }
-  }
-
-  set nodeValue(value) {
-    if (value === null) {
-      value = "";
-    }
-
-    switch (this.nodeType) {
-      case NODE_TYPE.ATTRIBUTE_NODE: {
-        attributes.setAnExistingAttributeValue(this, value);
-        break;
-      }
-      case NODE_TYPE.TEXT_NODE:
-      case NODE_TYPE.CDATA_SECTION_NODE: // CDATASection is a subclass of Text
-      case NODE_TYPE.PROCESSING_INSTRUCTION_NODE:
-      case NODE_TYPE.COMMENT_NODE: {
-        this.replaceData(0, this.length, value);
-        break;
-      }
-    }
+    return cloneNode(this._core, this, undefined, deep);
   }
 
   get textContent() {
+    let text;
     switch (this.nodeType) {
+      case NODE_TYPE.COMMENT_NODE:
+      case NODE_TYPE.CDATA_SECTION_NODE:
+      case NODE_TYPE.PROCESSING_INSTRUCTION_NODE:
+      case NODE_TYPE.TEXT_NODE:
+        return this.nodeValue;
+
+      case NODE_TYPE.ATTRIBUTE_NODE:
       case NODE_TYPE.DOCUMENT_FRAGMENT_NODE:
-      case NODE_TYPE.ELEMENT_NODE: {
-        let text = "";
+      case NODE_TYPE.ELEMENT_NODE:
+        text = "";
         for (const child of domSymbolTree.treeIterator(this)) {
           if (child.nodeType === NODE_TYPE.TEXT_NODE || child.nodeType === NODE_TYPE.CDATA_SECTION_NODE) {
             text += child.nodeValue;
           }
         }
         return text;
-      }
 
-      case NODE_TYPE.ATTRIBUTE_NODE: {
-        return this._value;
-      }
-
-      case NODE_TYPE.TEXT_NODE:
-      case NODE_TYPE.CDATA_SECTION_NODE: // CDATASection is a subclass of Text
-      case NODE_TYPE.PROCESSING_INSTRUCTION_NODE:
-      case NODE_TYPE.COMMENT_NODE: {
-        return this._data;
-      }
-
-      default: {
+      default:
         return null;
-      }
     }
   }
 
-  set textContent(value) {
+  set textContent(txt) {
     switch (this.nodeType) {
-      case NODE_TYPE.DOCUMENT_FRAGMENT_NODE:
-      case NODE_TYPE.ELEMENT_NODE: {
-        let child = domSymbolTree.firstChild(this);
-        while (child) {
-          this.removeChild(child);
-          child = domSymbolTree.firstChild(this);
-        }
-
-        if (value !== null && value !== "") {
-          this.appendChild(this._ownerDocument.createTextNode(value));
-        }
-
-        break;
-      }
-
-      case NODE_TYPE.ATTRIBUTE_NODE: {
-        attributes.setAnExistingAttributeValue(this, value);
-        break;
-      }
-
-      case NODE_TYPE.TEXT_NODE:
-      case NODE_TYPE.CDATA_SECTION_NODE: // CDATASection is a subclass of Text
+      case NODE_TYPE.COMMENT_NODE:
+      case NODE_TYPE.CDATA_SECTION_NODE:
       case NODE_TYPE.PROCESSING_INSTRUCTION_NODE:
-      case NODE_TYPE.COMMENT_NODE: {
-        this.replaceData(0, this.length, value);
-        break;
-      }
+      case NODE_TYPE.TEXT_NODE:
+        this.nodeValue = String(txt);
+        return;
     }
+
+    let child = domSymbolTree.firstChild(this);
+    while (child) {
+      this.removeChild(child);
+      child = domSymbolTree.firstChild(this);
+    }
+
+    if (txt !== "" && txt !== null) {
+      this.appendChild(this._ownerDocument.createTextNode(txt));
+    }
+  }
+
+  toString() {
+    const wrapper = idlUtils.wrapperForImpl(this);
+    return `[object ${wrapper.constructor.name}]`;
   }
 }
 

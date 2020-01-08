@@ -4,149 +4,177 @@ const parse5 = require("parse5");
 const sax = require("sax");
 const attributes = require("../living/attributes");
 const DocumentType = require("../living/generated/DocumentType");
-const JSDOMParse5Adapter = require("./parse5-adapter-parsing");
-const { HTML_NS } = require("../living/helpers/namespaces");
+const locationInfo = require("../living/helpers/internal-constants").locationInfo;
 
-// Horrible monkey-patch to implement https://github.com/inikulin/parse5/issues/237
-const OpenElementStack = require("parse5/lib/parser/open_element_stack");
-const originalPop = OpenElementStack.prototype.pop;
-OpenElementStack.prototype.pop = function (...args) {
-  const before = this.items[this.stackTop];
-  originalPop.apply(this, args);
-  if (before._poppedOffStackOfOpenElements) {
-    before._poppedOffStackOfOpenElements();
-  }
-};
-
-const originalPush = OpenElementStack.prototype.push;
-OpenElementStack.prototype.push = function (...args) {
-  originalPush.apply(this, args);
-  const after = this.items[this.stackTop];
-  if (after._pushedOnStackOfOpenElements) {
-    after._pushedOnStackOfOpenElements();
-  }
-};
-
-module.exports = class HTMLToDOM {
-  constructor(parsingMode) {
-    this.parser = parsingMode === "xml" ? sax : parse5;
-  }
-
-  appendToNode(html, node) {
-    html = String(html);
-
-    return this._doParse(html, true, node);
-  }
-
-  appendToDocument(html, documentImpl) {
-    html = String(html);
-
-    return this._doParse(html, false, documentImpl, documentImpl._parseOptions);
-  }
-
-  _doParse(...args) {
-    return this.parser === parse5 ? this._parseWithParse5(...args) : this._parseWithSax(...args);
-  }
-
-  _parseWithParse5(html, isFragment, contextNode, options = {}) {
-    const adapter = new JSDOMParse5Adapter(contextNode._ownerDocument || contextNode);
-    options.treeAdapter = adapter;
-
-    if (isFragment) {
-      const fragment = this.parser.parseFragment(contextNode, html, options);
-
-      if (contextNode._templateContents) {
-        contextNode._templateContents.appendChild(fragment);
+class HtmlToDom {
+  constructor(core, parser, parsingMode) {
+    if (!parser) {
+      if (parsingMode === "xml") {
+        parser = sax;
       } else {
-        contextNode.appendChild(fragment);
+        parser = parse5;
       }
-    } else {
-      this.parser.parse(html, options);
     }
 
-    return contextNode;
+    this.core = core;
+    this.parser = parser;
+    this.parsingMode = parsingMode;
+
+    if (parser.DefaultHandler) {
+      this.parserType = "htmlparser2";
+    } else if (parser.Parser && parser.TreeAdapters) {
+      this.parserType = "parse5v1";
+    } else if (parser.moduleName === "HTML5") {
+      this.parserType = "html5";
+    } else if (parser.parser) {
+      this.parserType = "sax";
+    }
   }
 
-  _parseWithSax(html, isFragment, contextNode) {
+  appendHtmlToElement(html, element) {
+    if (typeof html !== "string") {
+      html = String(html);
+    }
+
+    return this["_parseWith" + this.parserType](html, true, element);
+  }
+
+  appendHtmlToDocument(html, element) {
+    if (typeof html !== "string") {
+      html = String(html);
+    }
+
+    return this["_parseWith" + this.parserType](html, false, element);
+  }
+
+  _parseWithhtmlparser2(html, fragment, element) {
+    const handler = new this.parser.DefaultHandler();
+    // Check if document is XML
+    const isXML = this.parsingMode === "xml";
+    const parserInstance = new this.parser.Parser(handler, {
+      xmlMode: isXML,
+      lowerCaseTags: !isXML,
+      lowerCaseAttributeNames: !isXML,
+      decodeEntities: true
+    });
+
+    parserInstance.includeLocation = false;
+    parserInstance.parseComplete(html);
+
+    const parsed = handler.dom;
+    for (let i = 0; i < parsed.length; i++) {
+      setChild(this.core, element, parsed[i]);
+    }
+
+    return element;
+  }
+
+  _parseWithparse5v1(html, fragment, element) {
+    if (this.parsingMode === "xml") {
+      throw new Error("Can't parse XML with parse5, please use htmlparser2 instead.");
+    }
+
+    const htmlparser2Adapter = this.parser.TreeAdapters.htmlparser2;
+    let dom;
+    if (fragment) {
+      const instance = new this.parser.Parser(htmlparser2Adapter);
+      const parentElement = htmlparser2Adapter.createElement(element.tagName.toLowerCase(), element.namespaceURI, []);
+      dom = instance.parseFragment(html, parentElement);
+    } else {
+      const instance = new this.parser.Parser(htmlparser2Adapter, { locationInfo: true });
+      dom = instance.parse(html);
+    }
+
+    const parsed = dom.children;
+    for (let i = 0; i < parsed.length; i++) {
+      setChild(this.core, element, parsed[i]);
+    }
+
+    return element;
+  }
+
+  _parseWithhtml5(html, fragment, element) {
+    if (element.nodeType === 9) {
+      new this.parser.Parser({ document: element }).parse(html);
+    } else {
+      const p = new this.parser.Parser({ document: element.ownerDocument });
+      p.parse_fragment(html, element);
+    }
+  }
+
+  _parseWithsax(html, fragment, element) {
     const SaxParser = this.parser.parser;
-    const parser = new SaxParser(/* strict = */true, { xmlns: true, strictEntities: true });
+    const parser = new SaxParser(/* strict = */true, { xmlns: true });
     parser.noscript = false;
     parser.looseCase = "toString";
-    const openStack = [contextNode];
+    const openStack = [element];
     parser.ontext = text => {
-      setChildForSax(openStack[openStack.length - 1], {
+      setChild(this.core, openStack[openStack.length - 1], {
         type: "text",
         data: text
       });
     };
-    parser.oncdata = cdata => {
-      setChildForSax(openStack[openStack.length - 1], {
-        type: "cdata",
-        data: cdata
-      });
-    };
     parser.onopentag = arg => {
-      const attrs = Object.keys(arg.attributes).map(key => {
-        const rawAttribute = arg.attributes[key];
-
-        let { prefix } = rawAttribute;
-        let localName = rawAttribute.local;
-        if (prefix === "xmlns" && localName === "") {
-          // intended weirdness in node-sax, see https://github.com/isaacs/sax-js/issues/165
-          localName = prefix;
-          prefix = null;
-        }
-
-        if (prefix === "") {
-          prefix = null;
-        }
-
-        const namespace = rawAttribute.uri === "" ? null : rawAttribute.uri;
-
-        return { name: rawAttribute.name, value: rawAttribute.value, prefix, localName, namespace };
+      const attrValues = {};
+      const attrPrefixes = {};
+      const attrNamespaces = {};
+      Object.keys(arg.attributes).forEach(key => {
+        const localName = arg.attributes[key].local;
+        attrValues[localName] = arg.attributes[key].value;
+        attrPrefixes[localName] = arg.attributes[key].prefix || null;
+        attrNamespaces[localName] = arg.attributes[key].uri || null;
       });
-      const tag = {
-        type: "tag",
-        name: arg.local,
-        prefix: arg.prefix,
-        namespace: arg.uri,
-        attributes: attrs
-      };
 
-      if (arg.local === "script" && arg.uri === HTML_NS) {
-        openStack.push(tag);
+      if (arg.local === "script" && arg.uri === "http://www.w3.org/1999/xhtml") {
+        openStack.push({
+          type: "tag",
+          name: arg.local,
+          prefix: arg.prefix,
+          namespace: arg.uri,
+          attribs: attrValues,
+          "x-attribsPrefix": attrPrefixes,
+          "x-attribsNamespace": attrNamespaces
+        });
       } else {
-        const elem = setChildForSax(openStack[openStack.length - 1], tag);
+        const elem = setChild(this.core, openStack[openStack.length - 1], {
+          type: "tag",
+          name: arg.local,
+          prefix: arg.prefix,
+          namespace: arg.uri,
+          attribs: attrValues,
+          "x-attribsPrefix": attrPrefixes,
+          "x-attribsNamespace": attrNamespaces
+        });
         openStack.push(elem);
       }
     };
     parser.onclosetag = () => {
       const elem = openStack.pop();
       if (elem.constructor.name === "Object") { // we have an empty script tag
-        setChildForSax(openStack[openStack.length - 1], elem);
+        setChild(this.core, openStack[openStack.length - 1], elem);
       }
     };
     parser.onscript = scriptText => {
       const tag = openStack.pop();
       tag.children = [{ type: "text", data: scriptText }];
-      const elem = setChildForSax(openStack[openStack.length - 1], tag);
+      const elem = setChild(this.core, openStack[openStack.length - 1], tag);
       openStack.push(elem);
     };
     parser.oncomment = comment => {
-      setChildForSax(openStack[openStack.length - 1], {
+      setChild(this.core, openStack[openStack.length - 1], {
         type: "comment",
         data: comment
       });
     };
     parser.onprocessinginstruction = pi => {
-      setChildForSax(openStack[openStack.length - 1], {
+      setChild(this.core, openStack[openStack.length - 1], {
         type: "directive",
         name: "?" + pi.name,
         data: "?" + pi.name + " " + pi.body + "?"
       });
     };
     parser.ondoctype = dt => {
-      setChildForSax(openStack[openStack.length - 1], {
+      setChild(this.core, openStack[openStack.length - 1], {
         type: "directive",
         name: "!doctype",
         data: "!doctype " + dt
@@ -155,7 +183,9 @@ module.exports = class HTMLToDOM {
       const entityMatcher = /<!ENTITY ([^ ]+) "([^"]+)">/g;
       let result;
       while ((result = entityMatcher.exec(dt))) {
-        const [, name, value] = result;
+        // TODO Node v6 const [, name, value] = result;
+        const name = result[1];
+        const value = result[2];
         if (!(name in parser.ENTITIES)) {
           parser.ENTITIES[name] = value;
         }
@@ -167,10 +197,11 @@ module.exports = class HTMLToDOM {
     };
     parser.write(html).close();
   }
-};
+}
 
-function setChildForSax(parentImpl, node) {
-  const currentDocument = (parentImpl && parentImpl._ownerDocument) || parentImpl;
+// utility function for forgiving parser
+function setChild(core, parentImpl, node) {
+  const currentDocument = parentImpl && parentImpl._ownerDocument || parentImpl;
 
   let newNode;
   let isTemplateContents = false;
@@ -185,7 +216,7 @@ function setChildForSax(parentImpl, node) {
 
     case "root":
       // If we are in <template> then add all children to the parent's _templateContents; skip this virtual root node.
-      if (parentImpl.tagName === "TEMPLATE" && parentImpl._namespaceURI === HTML_NS) {
+      if (parentImpl.tagName === "TEMPLATE" && parentImpl._namespaceURI === "http://www.w3.org/1999/xhtml") {
         newNode = parentImpl._templateContents;
         isTemplateContents = true;
       }
@@ -194,10 +225,6 @@ function setChildForSax(parentImpl, node) {
     case "text":
       // HTML entities should already be decoded by the parser, so no need to decode them
       newNode = currentDocument.createTextNode(node.data);
-      break;
-
-    case "cdata":
-      newNode = currentDocument.createCDATASection(node.data);
       break;
 
     case "comment":
@@ -209,7 +236,14 @@ function setChildForSax(parentImpl, node) {
         const data = node.data.slice(node.name.length + 1, -1);
         newNode = currentDocument.createProcessingInstruction(node.name.substring(1), data);
       } else if (node.name.toLowerCase() === "!doctype") {
-        newNode = parseDocType(currentDocument, "<" + node.data + ">");
+        if (node["x-name"] !== undefined) { // parse5 supports doctypes directly
+          newNode = createDocumentTypeInternal(core, currentDocument,
+            node["x-name"] || "",
+            node["x-publicId"] || "",
+            node["x-systemId"] || "");
+        } else {
+          newNode = parseDocType(core, currentDocument, "<" + node.data + ">");
+        }
       }
       break;
   }
@@ -218,15 +252,31 @@ function setChildForSax(parentImpl, node) {
     return null;
   }
 
-  if (node.attributes) {
-    for (const a of node.attributes) {
-      attributes.setAttributeValue(newNode, a.localName, a.value, a.prefix, a.namespace);
-    }
+  newNode[locationInfo] = node.__location;
+
+  if (node.attribs) {
+    Object.keys(node.attribs).forEach(localName => {
+      const value = node.attribs[localName];
+      let prefix =
+        node["x-attribsPrefix"] &&
+        Object.prototype.hasOwnProperty.call(node["x-attribsPrefix"], localName) &&
+        node["x-attribsPrefix"][localName] || null;
+      const namespace =
+        node["x-attribsNamespace"] &&
+        Object.prototype.hasOwnProperty.call(node["x-attribsNamespace"], localName) &&
+        node["x-attribsNamespace"][localName] || null;
+      if (prefix === "xmlns" && localName === "") {
+         // intended weirdness in node-sax, see https://github.com/isaacs/sax-js/issues/165
+        localName = prefix;
+        prefix = null;
+      }
+      attributes.setAttributeValue(newNode, localName, value, prefix, namespace);
+    });
   }
 
   if (node.children) {
     for (let c = 0; c < node.children.length; c++) {
-      setChildForSax(newNode, node.children[c]);
+      setChild(core, newNode, node.children[c]);
     }
   }
 
@@ -246,26 +296,28 @@ const HTML5_DOCTYPE = /<!doctype html>/i;
 const PUBLIC_DOCTYPE = /<!doctype\s+([^\s]+)\s+public\s+"([^"]+)"\s+"([^"]+)"/i;
 const SYSTEM_DOCTYPE = /<!doctype\s+([^\s]+)\s+system\s+"([^"]+)"/i;
 
-function parseDocType(doc, html) {
+function parseDocType(core, doc, html) {
   if (HTML5_DOCTYPE.test(html)) {
-    return createDocumentTypeInternal(doc, "html", "", "");
+    return createDocumentTypeInternal(core, doc, "html", "", "");
   }
 
   const publicPieces = PUBLIC_DOCTYPE.exec(html);
   if (publicPieces) {
-    return createDocumentTypeInternal(doc, publicPieces[1], publicPieces[2], publicPieces[3]);
+    return createDocumentTypeInternal(core, doc, publicPieces[1], publicPieces[2], publicPieces[3]);
   }
 
   const systemPieces = SYSTEM_DOCTYPE.exec(html);
   if (systemPieces) {
-    return createDocumentTypeInternal(doc, systemPieces[1], "", systemPieces[2]);
+    return createDocumentTypeInternal(core, doc, systemPieces[1], "", systemPieces[2]);
   }
 
   // Shouldn't get here (the parser shouldn't let us know about invalid doctypes), but our logic likely isn't
   // real-world perfect, so let's fallback.
-  return createDocumentTypeInternal(doc, "html", "", "");
+  return createDocumentTypeInternal(core, doc, "html", "", "");
 }
 
-function createDocumentTypeInternal(ownerDocument, name, publicId, systemId) {
-  return DocumentType.createImpl([], { ownerDocument, name, publicId, systemId });
+function createDocumentTypeInternal(core, ownerDocument, name, publicId, systemId) {
+  return DocumentType.createImpl([], { core, ownerDocument, name, publicId, systemId });
 }
+
+exports.HtmlToDom = HtmlToDom;

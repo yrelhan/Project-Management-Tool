@@ -1,10 +1,14 @@
 /**
- * Copyright (c) 2014-present, Facebook, Inc.
+ * Copyright (c) 2014, Facebook, Inc.
+ * All rights reserved.
  *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
+ * This source code is licensed under the BSD-style license found in the
+ * https://raw.github.com/facebook/regenerator/master/LICENSE file. An
+ * additional grant of patent rights can be found in the PATENTS file in
+ * the same directory.
  */
 
+import * as t from "babel-types";
 import * as util from "./util";
 let hasOwn = Object.prototype.hasOwnProperty;
 
@@ -13,12 +17,11 @@ let hasOwn = Object.prototype.hasOwnProperty;
 // returns a VariableDeclaration containing just the names of the removed
 // declarations.
 exports.hoist = function(funPath) {
-  const t = util.getTypes();
   t.assertFunction(funPath.node);
 
   let vars = {};
 
-  function varDeclToExpr({ node: vdec, scope }, includeIdentifiers) {
+  function varDeclToExpr(vdec, includeIdentifiers) {
     t.assertVariableDeclaration(vdec);
     // TODO assert.equal(vdec.kind, "var");
     let exprs = [];
@@ -27,10 +30,6 @@ exports.hoist = function(funPath) {
       // Note: We duplicate 'dec.id' here to ensure that the variable declaration IDs don't
       // have the same 'loc' value, since that can make sourcemaps and retainLines behave poorly.
       vars[dec.id.name] = t.identifier(dec.id.name);
-
-      // Remove the binding, to avoid "duplicate declaration" errors when it will
-      // be injected again.
-      scope.removeBinding(dec.id.name);
 
       if (dec.init) {
         exprs.push(t.assignmentExpression(
@@ -53,7 +52,7 @@ exports.hoist = function(funPath) {
   funPath.get("body").traverse({
     VariableDeclaration: {
       exit: function(path) {
-        let expr = varDeclToExpr(path, false);
+        let expr = varDeclToExpr(path.node, false);
         if (expr === null) {
           path.remove();
         } else {
@@ -69,16 +68,16 @@ exports.hoist = function(funPath) {
     },
 
     ForStatement: function(path) {
-      let init = path.get("init");
-      if (init.isVariableDeclaration()) {
-        util.replaceWithOrRemove(init, varDeclToExpr(init, false));
+      let init = path.node.init;
+      if (t.isVariableDeclaration(init)) {
+        util.replaceWithOrRemove(path.get("init"), varDeclToExpr(init, false));
       }
     },
 
     ForXStatement: function(path) {
       let left = path.get("left");
       if (left.isVariableDeclaration()) {
-        util.replaceWithOrRemove(left, varDeclToExpr(left, true));
+        util.replaceWithOrRemove(left, varDeclToExpr(left.node, true));
       }
     },
 
@@ -89,9 +88,9 @@ exports.hoist = function(funPath) {
       let assignment = t.expressionStatement(
         t.assignmentExpression(
           "=",
-          t.clone(node.id),
+          node.id,
           t.functionExpression(
-            path.scope.generateUidIdentifierBasedOnNode(node),
+            node.id,
             node.params,
             node.body,
             node.generator,
@@ -115,20 +114,11 @@ exports.hoist = function(funPath) {
         util.replaceWithOrRemove(path, assignment);
       }
 
-      // Remove the binding, to avoid "duplicate declaration" errors when it will
-      // be injected again.
-      path.scope.removeBinding(node.id.name);
-
       // Don't hoist variables out of inner functions.
       path.skip();
     },
 
     FunctionExpression: function(path) {
-      // Don't descend into nested function expressions.
-      path.skip();
-    },
-
-    ArrowFunctionExpression: function(path) {
       // Don't descend into nested function expressions.
       path.skip();
     }

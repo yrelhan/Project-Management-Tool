@@ -1,5 +1,5 @@
 "use strict";
-const { addConstants } = require("../utils");
+const addConstants = require("../utils").addConstants;
 
 module.exports = function (core) {
   // https://dom.spec.whatwg.org/#interface-nodefilter

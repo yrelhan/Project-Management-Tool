@@ -1,16 +1,25 @@
 "use strict";
-const { mixin } = require("../../utils");
 const HTMLElementImpl = require("./HTMLElement-impl").implementation;
-const WindowEventHandlersImpl = require("./WindowEventHandlers-impl").implementation;
+const proxiedWindowEventHandlers = require("../helpers/proxied-window-event-handlers");
 
-class HTMLBodyElementImpl extends HTMLElementImpl {
-  constructor(...args) {
-    super(...args);
-    this._proxyWindowEventsToWindow();
-  }
+class HTMLBodyElementImpl extends HTMLElementImpl {}
+
+for (const name of proxiedWindowEventHandlers) {
+  Object.defineProperty(HTMLBodyElementImpl.prototype, name, {
+    configurable: true,
+    enumerable: true,
+    get() {
+      const window = this._ownerDocument._defaultView;
+      return window ? window[name] : null;
+    },
+    set(handler) {
+      const window = this._ownerDocument._defaultView;
+      if (window) {
+        window[name] = handler;
+      }
+    }
+  });
 }
-
-mixin(HTMLBodyElementImpl.prototype, WindowEventHandlersImpl.prototype);
 
 module.exports = {
   implementation: HTMLBodyElementImpl

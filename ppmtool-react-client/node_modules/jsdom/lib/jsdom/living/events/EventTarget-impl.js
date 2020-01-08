@@ -1,9 +1,10 @@
 "use strict";
-const DOMException = require("domexception");
+const DOMException = require("../../web-idl/DOMException");
 const reportException = require("../helpers/runtime-script-errors");
-const { domSymbolTree } = require("../helpers/internal-constants");
+const domSymbolTree = require("../helpers/internal-constants").domSymbolTree;
 const idlUtils = require("../generated/utils");
 
+const EventImpl = require("./Event-impl").implementation;
 const Event = require("../generated/Event").interface;
 
 class EventTargetImpl {
@@ -70,11 +71,15 @@ class EventTargetImpl {
   }
 
   dispatchEvent(eventImpl) {
+    if (!(eventImpl instanceof EventImpl)) {
+      throw new TypeError("Argument to dispatchEvent must be an Event");
+    }
+
     if (eventImpl._dispatchFlag || !eventImpl._initializedFlag) {
-      throw new DOMException("Tried to dispatch an uninitialized event", "InvalidStateError");
+      throw new DOMException(DOMException.INVALID_STATE_ERR, "Tried to dispatch an uninitialized event");
     }
     if (eventImpl.eventPhase !== Event.NONE) {
-      throw new DOMException("Tried to dispatch a dispatching event", "InvalidStateError");
+      throw new DOMException(DOMException.INVALID_STATE_ERR, "Tried to dispatch a dispatching event");
     }
 
     eventImpl.isTrusted = false;
@@ -87,8 +92,8 @@ class EventTargetImpl {
     eventImpl.target = targetOverride || this;
 
     const eventPath = [];
-    let { target } = eventImpl;
-    let targetParent = domSymbolTree.parent(target);
+    let targetParent = domSymbolTree.parent(eventImpl.target);
+    let target = eventImpl.target;
     while (targetParent) {
       eventPath.push(targetParent);
       target = targetParent;
@@ -114,6 +119,8 @@ class EventTargetImpl {
     eventImpl.eventPhase = Event.AT_TARGET;
 
     if (!eventImpl._stopPropagationFlag) {
+      invokeInlineListeners(eventImpl.target, eventImpl);
+
       if (this._eventListeners[eventImpl.type]) {
         const eventListeners = this._eventListeners[eventImpl.type];
         invokeEventListeners(eventListeners, eventImpl.target, eventImpl);
@@ -130,6 +137,7 @@ class EventTargetImpl {
         const object = eventPath[i];
         const objectImpl = idlUtils.implForWrapper(object) || object; // window :(
         const eventListeners = objectImpl._eventListeners[eventImpl.type];
+        invokeInlineListeners(object, eventImpl);
         invokeEventListeners(eventListeners, object, eventImpl);
       }
     }
@@ -147,6 +155,22 @@ module.exports = {
   implementation: EventTargetImpl
 };
 
+function invokeInlineListeners(object, event) {
+  const wrapper = idlUtils.wrapperForImpl(object);
+  const inlineListener = getListenerForInlineEventHandler(wrapper, event.type);
+  if (inlineListener) {
+    const document = object._ownerDocument || (wrapper && (wrapper._document || wrapper._ownerDocument));
+
+    // Will be falsy for windows that have closed
+    if (document && (!object.nodeName || document.implementation._hasFeature("ProcessExternalResources", "script"))) {
+      invokeEventListeners([{
+        callback: inlineListener,
+        options: normalizeEventHandlerOptions(false, ["capture", "once"])
+      }], object, event);
+    }
+  }
+}
+
 function invokeEventListeners(listeners, target, eventImpl) {
   const wrapper = idlUtils.wrapperForImpl(target);
   const document = target._ownerDocument || (wrapper && (wrapper._document || wrapper._ownerDocument));
@@ -157,7 +181,7 @@ function invokeEventListeners(listeners, target, eventImpl) {
 
   // workaround for events emitted on window (window-proxy)
   // the wrapper is the root window instance, but we only want to expose the vm proxy at all times
-  if (wrapper._document && wrapper.constructor.name === "Window") {
+  if (wrapper._document) {
     target = idlUtils.implForWrapper(wrapper._document)._defaultView;
   }
   eventImpl.currentTarget = target;
@@ -172,7 +196,9 @@ function invokeEventListeners(listeners, target, eventImpl) {
     }
 
     const listener = handlers[i];
-    const { capture, once/* , passive */ } = listener.options;
+    const capture = listener.options.capture;
+    const once = listener.options.once;
+    // const passive = listener.options.passive;
 
     if (listeners.indexOf(listener) === -1 ||
         (eventImpl.eventPhase === Event.CAPTURING_PHASE && !capture) ||
@@ -213,6 +239,8 @@ function invokeEventListeners(listeners, target, eventImpl) {
   }
 }
 
+const wrappedListener = Symbol("inline event listener wrapper");
+
 /**
  * Normalize the event listeners options argument in order to get always a valid options object
  * @param   {Object} options         - user defined options
@@ -240,4 +268,36 @@ function normalizeEventHandlerOptions(options, defaultBoolKeys) {
   }
 
   return returnValue;
+}
+
+function getListenerForInlineEventHandler(target, type) {
+  const callback = target["on" + type];
+
+  if (!callback) { // TODO event handlers: only check null
+    return null;
+  }
+
+  if (!callback[wrappedListener]) {
+    // https://html.spec.whatwg.org/multipage/webappapis.html#the-event-handler-processing-algorithm
+    callback[wrappedListener] = function (E) {
+      const isWindowError = E.constructor.name === "ErrorEvent" && type === "error"; // TODO branding
+
+      let returnValue;
+      if (isWindowError) {
+        returnValue = callback.call(E.currentTarget, E.message, E.filename, E.lineno, E.colno, E.error);
+      } else {
+        returnValue = callback.call(E.currentTarget, E);
+      }
+
+      if (type === "mouseover" || isWindowError) {
+        if (returnValue === true) {
+          E.preventDefault();
+        }
+      } else if (returnValue === false) {
+        E.preventDefault();
+      }
+    };
+  }
+
+  return callback[wrappedListener];
 }

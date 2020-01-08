@@ -2,72 +2,74 @@
 
 const conversions = require("webidl-conversions");
 const utils = require("./utils.js");
-
-const impl = utils.implSymbol;
 const HTMLElement = require("./HTMLElement.js");
+const impl = utils.implSymbol;
 
 function HTMLMenuElement() {
   throw new TypeError("Illegal constructor");
 }
+HTMLMenuElement.prototype = Object.create(HTMLElement.interface.prototype);
+HTMLMenuElement.prototype.constructor = HTMLMenuElement;
 
-Object.setPrototypeOf(HTMLMenuElement.prototype, HTMLElement.interface.prototype);
-Object.setPrototypeOf(HTMLMenuElement, HTMLElement.interface);
 
-Object.defineProperty(HTMLMenuElement, "prototype", {
-  value: HTMLMenuElement.prototype,
-  writable: false,
-  enumerable: false,
-  configurable: false
-});
-
-Object.defineProperty(HTMLMenuElement.prototype, "compact", {
+HTMLMenuElement.prototype.toString = function () {
+  if (this === HTMLMenuElement.prototype) {
+    return "[object HTMLMenuElementPrototype]";
+  }
+  return HTMLElement.interface.prototype.toString.call(this);
+};
+Object.defineProperty(HTMLMenuElement.prototype, "type", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return this.hasAttribute("compact");
+    const value = this.getAttribute("type");
+    return value === null ? "" : value;
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = conversions["boolean"](V, {
-      context: "Failed to set the 'compact' property on 'HTMLMenuElement': The provided value"
-    });
-
-    if (V) {
-      this.setAttribute("compact", "");
-    } else {
-      this.removeAttribute("compact");
-    }
+    V = conversions["DOMString"](V);
+    this.setAttribute("type", V);
   },
-
   enumerable: true,
   configurable: true
 });
 
-Object.defineProperty(HTMLMenuElement.prototype, Symbol.toStringTag, {
-  value: "HTMLMenuElement",
-  writable: false,
-  enumerable: false,
+Object.defineProperty(HTMLMenuElement.prototype, "label", {
+  get() {
+    const value = this.getAttribute("label");
+    return value === null ? "" : value;
+  },
+  set(V) {
+    V = conversions["DOMString"](V);
+    this.setAttribute("label", V);
+  },
+  enumerable: true,
   configurable: true
 });
 
+Object.defineProperty(HTMLMenuElement.prototype, "compact", {
+  get() {
+    return this.hasAttribute("compact");
+  },
+  set(V) {
+    V = conversions["boolean"](V);
+    if (V) {
+    this.setAttribute("compact", "");
+  } else {
+    this.removeAttribute("compact");
+  }
+  },
+  enumerable: true,
+  configurable: true
+});
+
+
 const iface = {
-  // When an interface-module that implements this interface as a mixin is loaded, it will append its own `.is()`
-  // method into this array. It allows objects that directly implements *those* interfaces to be recognized as
-  // implementing this mixin interface.
-  _mixedIntoPredicates: [],
+  mixedInto: [],
   is(obj) {
     if (obj) {
-      if (utils.hasOwn(obj, impl) && obj[impl] instanceof Impl.implementation) {
+      if (obj[impl] instanceof Impl.implementation) {
         return true;
       }
-      for (const isMixedInto of module.exports._mixedIntoPredicates) {
-        if (isMixedInto(obj)) {
+      for (let i = 0; i < module.exports.mixedInto.length; ++i) {
+        if (obj instanceof module.exports.mixedInto[i]) {
           return true;
         }
       }
@@ -81,58 +83,42 @@ const iface = {
       }
 
       const wrapper = utils.wrapperForImpl(obj);
-      for (const isMixedInto of module.exports._mixedIntoPredicates) {
-        if (isMixedInto(wrapper)) {
+      for (let i = 0; i < module.exports.mixedInto.length; ++i) {
+        if (wrapper instanceof module.exports.mixedInto[i]) {
           return true;
         }
       }
     }
     return false;
   },
-  convert(obj, { context = "The provided value" } = {}) {
-    if (module.exports.is(obj)) {
-      return utils.implForWrapper(obj);
-    }
-    throw new TypeError(`${context} is not of type 'HTMLMenuElement'.`);
-  },
-
   create(constructorArgs, privateData) {
     let obj = Object.create(HTMLMenuElement.prototype);
-    obj = this.setup(obj, constructorArgs, privateData);
+    this.setup(obj, constructorArgs, privateData);
     return obj;
   },
   createImpl(constructorArgs, privateData) {
     let obj = Object.create(HTMLMenuElement.prototype);
-    obj = this.setup(obj, constructorArgs, privateData);
+    this.setup(obj, constructorArgs, privateData);
     return utils.implForWrapper(obj);
   },
   _internalSetup(obj) {
     HTMLElement._internalSetup(obj);
+
   },
   setup(obj, constructorArgs, privateData) {
     if (!privateData) privateData = {};
-
     privateData.wrapper = obj;
 
     this._internalSetup(obj);
-    Object.defineProperty(obj, impl, {
-      value: new Impl.implementation(constructorArgs, privateData),
-      writable: false,
-      enumerable: false,
-      configurable: true
-    });
 
+    obj[impl] = new Impl.implementation(constructorArgs, privateData);
     obj[impl][utils.wrapperSymbol] = obj;
-    if (Impl.init) {
-      Impl.init(obj[impl], privateData);
-    }
-    return obj;
   },
   interface: HTMLMenuElement,
   expose: {
-    Window: { HTMLMenuElement }
+    Window: { HTMLMenuElement: HTMLMenuElement }
   }
-}; // iface
+};
 module.exports = iface;
 
 const Impl = require("../nodes/HTMLMenuElement-impl.js");

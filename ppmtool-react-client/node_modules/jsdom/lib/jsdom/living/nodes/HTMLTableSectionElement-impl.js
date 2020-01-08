@@ -1,25 +1,23 @@
 "use strict";
 
 const HTMLElementImpl = require("./HTMLElement-impl").implementation;
-const { childrenByHTMLLocalName } = require("../helpers/traversal");
-const HTMLCollection = require("../generated/HTMLCollection");
-const DOMException = require("domexception");
+const idlUtils = require("../generated/utils");
+const childrenByHTMLLocalName = require("../helpers/traversal").childrenByHTMLLocalName;
+const createHTMLCollection = require("../../living/html-collection").create;
+const DOMException = require("../../web-idl/DOMException");
 
 class HTMLTableSectionElementImpl extends HTMLElementImpl {
   get rows() {
     if (!this._rows) {
-      this._rows = HTMLCollection.createImpl([], {
-        element: this,
-        query: () => childrenByHTMLLocalName(this, "tr")
-      });
+      this._rows = createHTMLCollection(this, () => childrenByHTMLLocalName(this, "tr"));
     }
     return this._rows;
   }
 
   insertRow(index) {
     if (index < -1 || index > this.rows.length) {
-      throw new DOMException("Cannot insert a row at an index that is less than -1 or greater than the number of " +
-        "existing rows", "IndexSizeError");
+      throw new DOMException(DOMException.INDEX_SIZE_ERR,
+        "Cannot insert a row at an index that is less than -1 or greater than the number of existing rows");
     }
 
     const tr = this._ownerDocument.createElement("tr");
@@ -27,7 +25,7 @@ class HTMLTableSectionElementImpl extends HTMLElementImpl {
     if (index === -1 || index === this.rows.length) {
       this.appendChild(tr);
     } else {
-      const beforeTR = this.rows.item(index);
+      const beforeTR = idlUtils.implForWrapper(this.rows[index]);
       this.insertBefore(tr, beforeTR);
     }
 
@@ -36,16 +34,16 @@ class HTMLTableSectionElementImpl extends HTMLElementImpl {
 
   deleteRow(index) {
     if (index < -1 || index >= this.rows.length) {
-      throw new DOMException(`Cannot delete a row at index ${index}, where no row exists`, "IndexSizeError");
+      throw new DOMException(DOMException.INDEX_SIZE_ERR, `Cannot delete a row at index ${index}, where no row exists`);
     }
 
     if (index === -1) {
       if (this.rows.length > 0) {
-        const tr = this.rows.item(this.rows.length - 1);
+        const tr = idlUtils.implForWrapper(this.rows[this.rows.length - 1]);
         this.removeChild(tr);
       }
     } else {
-      const tr = this.rows.item(index);
+      const tr = idlUtils.implForWrapper(this.rows[index]);
       this.removeChild(tr);
     }
   }

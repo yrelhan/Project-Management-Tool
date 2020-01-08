@@ -1,20 +1,27 @@
 "use strict";
 
-const DOMException = require("domexception");
-const { filter, FILTER_ACCEPT, FILTER_REJECT, FILTER_SKIP } = require("./helpers");
+const DOMException = require("../../web-idl/DOMException");
+const idlUtils = require("../generated/utils");
+const conversions = require("webidl-conversions");
 
+// FIXME: Once NodeFilter is ported to IDL method, uncomment these.
+const FILTER_ACCEPT = 1; // NodeFilter.FILTER_ACCEPT;
+const FILTER_REJECT = 2; // NodeFilter.FILTER_REJECT;
+const FILTER_SKIP = 3; // NodeFilter.FILTER_SKIP;
 const FIRST = false;
 const LAST = true;
 const NEXT = false;
 const PREVIOUS = true;
 
-exports.implementation = class TreeWalkerImpl {
+function isNull(o) {
+  return o === null || typeof o === "undefined";
+}
+
+class TreeWalkerImpl {
   constructor(args, privateData) {
-    this._active = false;
     this.root = privateData.root;
     this.whatToShow = privateData.whatToShow;
     this.filter = privateData.filter;
-
     this.currentNode = this.root;
   }
 
@@ -23,8 +30,8 @@ exports.implementation = class TreeWalkerImpl {
   }
 
   set currentNode(node) {
-    if (node === null) {
-      throw new DOMException("Cannot set currentNode to null", "NotSupportedError");
+    if (isNull(node)) {
+      throw new DOMException(DOMException.NOT_SUPPORTED_ERR, "Cannot set currentNode to null");
     }
 
     this._currentNode = node;
@@ -32,10 +39,10 @@ exports.implementation = class TreeWalkerImpl {
 
   parentNode() {
     let node = this._currentNode;
-    while (node !== null && node !== this.root) {
+    while (!isNull(node) && node !== this.root) {
       node = node.parentNode;
 
-      if (node !== null && filter(this, node) === FILTER_ACCEPT) {
+      if (!isNull(node) && this._filterNode(node) === FILTER_ACCEPT) {
         return (this._currentNode = node);
       }
     }
@@ -64,13 +71,13 @@ exports.implementation = class TreeWalkerImpl {
     while (node !== this.root) {
       let sibling = node.previousSibling;
 
-      while (sibling !== null) {
+      while (!isNull(sibling)) {
         node = sibling;
-        let result = filter(this, node);
+        let result = this._filterNode(node);
 
         while (result !== FILTER_REJECT && node.hasChildNodes()) {
           node = node.lastChild;
-          result = filter(this, node);
+          result = this._filterNode(node);
         }
 
         if (result === FILTER_ACCEPT) {
@@ -80,13 +87,13 @@ exports.implementation = class TreeWalkerImpl {
         sibling = node.previousSibling;
       }
 
-      if (node === this.root || node.parentNode === null) {
+      if (node === this.root || isNull(node.parentNode)) {
         return null;
       }
 
       node = node.parentNode;
 
-      if (filter(this, node) === FILTER_ACCEPT) {
+      if (this._filterNode(node) === FILTER_ACCEPT) {
         return (this._currentNode = node);
       }
     }
@@ -101,7 +108,7 @@ exports.implementation = class TreeWalkerImpl {
     for (;;) {
       while (result !== FILTER_REJECT && node.hasChildNodes()) {
         node = node.firstChild;
-        result = filter(this, node);
+        result = this._filterNode(node);
         if (result === FILTER_ACCEPT) {
           return (this._currentNode = node);
         }
@@ -114,19 +121,19 @@ exports.implementation = class TreeWalkerImpl {
 
         const sibling = node.nextSibling;
 
-        if (sibling !== null) {
+        if (!isNull(sibling)) {
           node = sibling;
           break;
         }
 
         node = node.parentNode;
-      } while (node !== null);
+      } while (!isNull(node));
 
-      if (node === null) {
+      if (isNull(node)) {
         return null;
       }
 
-      result = filter(this, node);
+      result = this._filterNode(node);
 
       if (result === FILTER_ACCEPT) {
         return (this._currentNode = node);
@@ -134,16 +141,46 @@ exports.implementation = class TreeWalkerImpl {
     }
   }
 
+  toString() {
+    return "[object TreeWalker]";
+  }
+
+  _filterNode(node) {
+    const n = node.nodeType - 1;
+
+    if (!((1 << n) & this.whatToShow)) {
+      return FILTER_SKIP;
+    }
+
+    const filter = this.filter;
+
+    if (isNull(filter)) {
+      return FILTER_ACCEPT;
+    }
+
+    let result;
+
+    if (typeof filter === "function") {
+      result = filter(idlUtils.wrapperForImpl(node));
+    } else {
+      result = filter.acceptNode(idlUtils.wrapperForImpl(node));
+    }
+
+    result = conversions["unsigned short"](result);
+
+    return result;
+  }
+
   _traverseChildren(type) {
     let node = this._currentNode;
     node = type === FIRST ? node.firstChild : node.lastChild;
 
-    if (node === null) {
+    if (isNull(node)) {
       return null;
     }
 
     main: for (;;) {
-      const result = filter(this, node);
+      const result = this._filterNode(node);
 
       if (result === FILTER_ACCEPT) {
         return (this._currentNode = node);
@@ -152,7 +189,7 @@ exports.implementation = class TreeWalkerImpl {
       if (result === FILTER_SKIP) {
         const child = type === FIRST ? node.firstChild : node.lastChild;
 
-        if (child !== null) {
+        if (!isNull(child)) {
           node = child;
           continue;
         }
@@ -161,14 +198,14 @@ exports.implementation = class TreeWalkerImpl {
       for (;;) {
         const sibling = type === FIRST ? node.nextSibling : node.previousSibling;
 
-        if (sibling !== null) {
+        if (!isNull(sibling)) {
           node = sibling;
           continue main;
         }
 
         const parent = node.parentNode;
 
-        if (parent === null || parent === this.root || parent === this._currentNode) {
+        if (isNull(parent) || parent === this.root || parent === this._currentNode) {
           return null;
         }
 
@@ -187,9 +224,9 @@ exports.implementation = class TreeWalkerImpl {
     for (;;) {
       let sibling = type === NEXT ? node.nextSibling : node.previousSibling;
 
-      while (sibling !== null) {
+      while (!isNull(sibling)) {
         node = sibling;
-        const result = filter(this, node);
+        const result = this._filterNode(node);
 
         if (result === FILTER_ACCEPT) {
           return (this._currentNode = node);
@@ -197,20 +234,24 @@ exports.implementation = class TreeWalkerImpl {
 
         sibling = type === NEXT ? node.firstChild : node.lastChild;
 
-        if (result === FILTER_REJECT || sibling === null) {
+        if (result === FILTER_REJECT || isNull(sibling)) {
           sibling = type === NEXT ? node.nextSibling : node.previousSibling;
         }
       }
 
       node = node.parentNode;
 
-      if (node === null || node === this.root) {
+      if (isNull(node) || node === this.root) {
         return null;
       }
 
-      if (filter(this, node) === FILTER_ACCEPT) {
+      if (this._filterNode(node) === FILTER_ACCEPT) {
         return null;
       }
     }
   }
+}
+
+module.exports = {
+  implementation: TreeWalkerImpl
 };

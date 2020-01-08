@@ -1,10 +1,7 @@
 "use strict";
-const { EOL } = require("os");
+const idlUtils = require("../generated/utils");
+const conversions = require("webidl-conversions");
 const Blob = require("../generated/Blob");
-
-function convertLineEndingsToNative(s) {
-  return s.replace(/\r\n|\r|\n/g, EOL);
-}
 
 exports.implementation = class BlobImpl {
   constructor(args) {
@@ -14,20 +11,29 @@ exports.implementation = class BlobImpl {
     const buffers = [];
 
     if (parts !== undefined) {
+      if (parts === null || typeof parts !== "object" || typeof parts[Symbol.iterator] !== "function") {
+        throw new TypeError("parts must be an iterable object");
+      }
+
+      const arr = [];
       for (const part of parts) {
+        if (part instanceof ArrayBuffer || ArrayBuffer.isView(part) || Blob.is(part)) {
+          arr.push(idlUtils.tryImplForWrapper(part));
+        } else {
+          arr.push(conversions.USVString(part));
+        }
+      }
+
+      for (const part of arr) {
         let buffer;
         if (part instanceof ArrayBuffer) {
-          buffer = Buffer.from(part);
+          buffer = new Buffer(new Uint8Array(part));
         } else if (ArrayBuffer.isView(part)) {
-          buffer = Buffer.from(part.buffer, part.byteOffset, part.byteLength);
+          buffer = new Buffer(new Uint8Array(part.buffer, part.byteOffset, part.byteLength));
         } else if (Blob.isImpl(part)) {
           buffer = part._buffer;
         } else {
-          let s = part;
-          if (properties.endings === "native") {
-            s = convertLineEndingsToNative(part);
-          }
-          buffer = Buffer.from(s);
+          buffer = new Buffer(part);
         }
         buffers.push(buffer);
       }
@@ -41,14 +47,16 @@ exports.implementation = class BlobImpl {
     } else {
       this.type = this.type.toLowerCase();
     }
+
+    this.isClosed = false;
   }
 
   get size() {
-    return this._buffer.length;
+    return this.isClosed ? 0 : this._buffer.length;
   }
 
   slice(start, end, contentType) {
-    const { size } = this;
+    const size = this.size;
 
     let relativeStart;
     let relativeEnd;
@@ -86,7 +94,12 @@ exports.implementation = class BlobImpl {
     );
 
     const blob = Blob.createImpl([[], { type: relativeContentType }], {});
+    blob.isClosed = this.isClosed;
     blob._buffer = slicedBuffer;
     return blob;
+  }
+
+  close() {
+    this.isClosed = true;
   }
 };

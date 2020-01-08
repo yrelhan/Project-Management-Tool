@@ -1,9 +1,9 @@
-"use strict";
+'use strict';
 
-const atob = require("./lib/atob");
-const btoa = require("./lib/btoa");
+var atob = require('./lib/atob');
+var btoa = require('./lib/btoa');
 
 module.exports = {
-  atob,
-  btoa
+  atob: atob,
+  btoa: btoa
 };

@@ -2,8 +2,7 @@
 const nodeType = require("../node-type.js");
 const FocusEvent = require("../generated/FocusEvent.js");
 const idlUtils = require("../generated/utils.js");
-const { isDisabled } = require("./form-controls.js");
-const { HTML_NS } = require("./namespaces");
+const isDisabled = require("./form-controls.js").isDisabled;
 
 const focusableFormElements = new Set(["input", "select", "textarea", "button"]);
 
@@ -24,7 +23,7 @@ exports.isFocusableAreaElement = elImpl => {
     return true;
   }
 
-  if (elImpl._namespaceURI === HTML_NS) {
+  if (elImpl._namespaceURI === "http://www.w3.org/1999/xhtml") {
     if (elImpl._localName === "iframe") {
       return true;
     }
@@ -54,16 +53,13 @@ exports.fireFocusEventWithTargetAdjustment = (name, target, relatedTarget) => {
   }
 
   const event = FocusEvent.createImpl(
-    [
-      name,
-      {
-        bubbles: false,
-        cancelable: false,
-        relatedTarget,
-        view: target._ownerDocument._defaultView,
-        detail: 0
-      }
-    ],
+    [name, {
+      bubbles: false,
+      cancelable: false,
+      relatedTarget,
+      view: target._ownerDocument._defaultView,
+      detail: 0
+    }],
     {
       isTrusted: true
     }

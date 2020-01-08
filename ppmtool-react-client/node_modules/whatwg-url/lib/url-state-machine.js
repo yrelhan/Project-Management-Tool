@@ -2,9 +2,6 @@
 const punycode = require("punycode");
 const tr46 = require("tr46");
 
-const infra = require("./infra");
-const { percentEncode, percentDecode } = require("./urlencoded");
-
 const specialSchemes = {
   ftp: 21,
   file: null,
@@ -26,6 +23,22 @@ function at(input, idx) {
   return isNaN(c) ? undefined : String.fromCodePoint(c);
 }
 
+function isASCIIDigit(c) {
+  return c >= 0x30 && c <= 0x39;
+}
+
+function isASCIIAlpha(c) {
+  return (c >= 0x41 && c <= 0x5A) || (c >= 0x61 && c <= 0x7A);
+}
+
+function isASCIIAlphanumeric(c) {
+  return isASCIIAlpha(c) || isASCIIDigit(c);
+}
+
+function isASCIIHex(c) {
+  return isASCIIDigit(c) || (c >= 0x41 && c <= 0x46) || (c >= 0x61 && c <= 0x66);
+}
+
 function isSingleDot(buffer) {
   return buffer === "." || buffer.toLowerCase() === "%2e";
 }
@@ -36,15 +49,15 @@ function isDoubleDot(buffer) {
 }
 
 function isWindowsDriveLetterCodePoints(cp1, cp2) {
-  return infra.isASCIIAlpha(cp1) && (cp2 === 58 || cp2 === 124);
+  return isASCIIAlpha(cp1) && (cp2 === 58 || cp2 === 124);
 }
 
 function isWindowsDriveLetterString(string) {
-  return string.length === 2 && infra.isASCIIAlpha(string.codePointAt(0)) && (string[1] === ":" || string[1] === "|");
+  return string.length === 2 && isASCIIAlpha(string.codePointAt(0)) && (string[1] === ":" || string[1] === "|");
 }
 
 function isNormalizedWindowsDriveLetterString(string) {
-  return string.length === 2 && infra.isASCIIAlpha(string.codePointAt(0)) && string[1] === ":";
+  return string.length === 2 && isASCIIAlpha(string.codePointAt(0)) && string[1] === ":";
 }
 
 function containsForbiddenHostCodePoint(string) {
@@ -63,16 +76,21 @@ function isSpecial(url) {
   return isSpecialScheme(url.scheme);
 }
 
-function isNotSpecial(url) {
-  return !isSpecialScheme(url.scheme);
-}
-
 function defaultPort(scheme) {
   return specialSchemes[scheme];
 }
 
+function percentEncode(c) {
+  let hex = c.toString(16).toUpperCase();
+  if (hex.length === 1) {
+    hex = "0" + hex;
+  }
+
+  return "%" + hex;
+}
+
 function utf8PercentEncode(c) {
-  const buf = Buffer.from(c);
+  const buf = new Buffer(c);
 
   let str = "";
 
@@ -83,24 +101,35 @@ function utf8PercentEncode(c) {
   return str;
 }
 
+function utf8PercentDecode(str) {
+  const input = new Buffer(str);
+  const output = [];
+  for (let i = 0; i < input.length; ++i) {
+    if (input[i] !== 37) {
+      output.push(input[i]);
+    } else if (input[i] === 37 && isASCIIHex(input[i + 1]) && isASCIIHex(input[i + 2])) {
+      output.push(parseInt(input.slice(i + 1, i + 3).toString(), 16));
+      i += 2;
+    } else {
+      output.push(input[i]);
+    }
+  }
+  return new Buffer(output).toString();
+}
+
 function isC0ControlPercentEncode(c) {
   return c <= 0x1F || c > 0x7E;
+}
+
+const extraPathPercentEncodeSet = new Set([32, 34, 35, 60, 62, 63, 96, 123, 125]);
+function isPathPercentEncode(c) {
+  return isC0ControlPercentEncode(c) || extraPathPercentEncodeSet.has(c);
 }
 
 const extraUserinfoPercentEncodeSet =
   new Set([47, 58, 59, 61, 64, 91, 92, 93, 94, 124]);
 function isUserinfoPercentEncode(c) {
   return isPathPercentEncode(c) || extraUserinfoPercentEncodeSet.has(c);
-}
-
-const extraFragmentPercentEncodeSet = new Set([32, 34, 60, 62, 96]);
-function isFragmentPercentEncode(c) {
-  return isC0ControlPercentEncode(c) || extraFragmentPercentEncodeSet.has(c);
-}
-
-const extraPathPercentEncodeSet = new Set([35, 63, 123, 125]);
-function isPathPercentEncode(c) {
-  return isFragmentPercentEncode(c) || extraPathPercentEncodeSet.has(c);
 }
 
 function percentEncodeChar(c, encodeSetPredicate) {
@@ -128,14 +157,7 @@ function parseIPv4Number(input) {
     return 0;
   }
 
-  let regex = /[^0-7]/;
-  if (R === 10) {
-    regex = /[^0-9]/;
-  }
-  if (R === 16) {
-    regex = /[^0-9A-Fa-f]/;
-  }
-
+  const regex = R === 10 ? /[^0-9]/ : (R === 16 ? /[^0-9A-Fa-f]/ : /[^0-7]/);
   if (regex.test(input)) {
     return failure;
   }
@@ -192,9 +214,9 @@ function serializeIPv4(address) {
   let output = "";
   let n = address;
 
-  for (let i = 1; i <= 4; ++i) {
+  for (let i = 0; i < 4; ++i) {
     output = String(n % 256) + output;
-    if (i !== 4) {
+    if (i !== 3) {
       output = "." + output;
     }
     n = Math.floor(n / 256);
@@ -204,9 +226,9 @@ function serializeIPv4(address) {
 }
 
 function parseIPv6(input) {
-  const address = [0, 0, 0, 0, 0, 0, 0, 0];
-  let pieceIndex = 0;
-  let compress = null;
+  const ip = [0, 0, 0, 0, 0, 0, 0, 0];
+  let piecePtr = 0;
+  let compressPtr = null;
   let pointer = 0;
 
   input = punycode.ucs2.decode(input);
@@ -217,29 +239,29 @@ function parseIPv6(input) {
     }
 
     pointer += 2;
-    ++pieceIndex;
-    compress = pieceIndex;
+    ++piecePtr;
+    compressPtr = piecePtr;
   }
 
   while (pointer < input.length) {
-    if (pieceIndex === 8) {
+    if (piecePtr === 8) {
       return failure;
     }
 
     if (input[pointer] === 58) {
-      if (compress !== null) {
+      if (compressPtr !== null) {
         return failure;
       }
       ++pointer;
-      ++pieceIndex;
-      compress = pieceIndex;
+      ++piecePtr;
+      compressPtr = piecePtr;
       continue;
     }
 
     let value = 0;
     let length = 0;
 
-    while (length < 4 && infra.isASCIIHex(input[pointer])) {
+    while (length < 4 && isASCIIHex(input[pointer])) {
       value = value * 0x10 + parseInt(at(input, pointer), 16);
       ++pointer;
       ++length;
@@ -252,7 +274,7 @@ function parseIPv6(input) {
 
       pointer -= length;
 
-      if (pieceIndex > 6) {
+      if (piecePtr > 6) {
         return failure;
       }
 
@@ -269,11 +291,11 @@ function parseIPv6(input) {
           }
         }
 
-        if (!infra.isASCIIDigit(input[pointer])) {
+        if (!isASCIIDigit(input[pointer])) {
           return failure;
         }
 
-        while (infra.isASCIIDigit(input[pointer])) {
+        while (isASCIIDigit(input[pointer])) {
           const number = parseInt(at(input, pointer));
           if (ipv4Piece === null) {
             ipv4Piece = number;
@@ -288,12 +310,12 @@ function parseIPv6(input) {
           ++pointer;
         }
 
-        address[pieceIndex] = address[pieceIndex] * 0x100 + ipv4Piece;
+        ip[piecePtr] = ip[piecePtr] * 0x100 + ipv4Piece;
 
         ++numbersSeen;
 
         if (numbersSeen === 2 || numbersSeen === 4) {
-          ++pieceIndex;
+          ++piecePtr;
         }
       }
 
@@ -311,50 +333,52 @@ function parseIPv6(input) {
       return failure;
     }
 
-    address[pieceIndex] = value;
-    ++pieceIndex;
+    ip[piecePtr] = value;
+    ++piecePtr;
   }
 
-  if (compress !== null) {
-    let swaps = pieceIndex - compress;
-    pieceIndex = 7;
-    while (pieceIndex !== 0 && swaps > 0) {
-      const temp = address[compress + swaps - 1];
-      address[compress + swaps - 1] = address[pieceIndex];
-      address[pieceIndex] = temp;
-      --pieceIndex;
+  if (compressPtr !== null) {
+    let swaps = piecePtr - compressPtr;
+    piecePtr = 7;
+    while (piecePtr !== 0 && swaps > 0) {
+      const temp = ip[compressPtr + swaps - 1]; // piece
+      ip[compressPtr + swaps - 1] = ip[piecePtr];
+      ip[piecePtr] = temp;
+      --piecePtr;
       --swaps;
     }
-  } else if (compress === null && pieceIndex !== 8) {
+  } else if (compressPtr === null && piecePtr !== 8) {
     return failure;
   }
 
-  return address;
+  return ip;
 }
 
 function serializeIPv6(address) {
   let output = "";
   const seqResult = findLongestZeroSequence(address);
-  const compress = seqResult.idx;
+  const compressPtr = seqResult.idx;
   let ignore0 = false;
 
-  for (let pieceIndex = 0; pieceIndex <= 7; ++pieceIndex) {
-    if (ignore0 && address[pieceIndex] === 0) {
+  for (let i = 0; i < address.length; ++i) {
+    const piece = address[i];
+
+    if (ignore0 && piece === 0) {
       continue;
     } else if (ignore0) {
       ignore0 = false;
     }
 
-    if (compress === pieceIndex) {
-      const separator = pieceIndex === 0 ? "::" : ":";
+    if (compressPtr === i) {
+      const separator = i === 0 ? "::" : ":";
       output += separator;
       ignore0 = true;
       continue;
     }
 
-    output += address[pieceIndex].toString(16);
+    output += piece.toString(16);
 
-    if (pieceIndex !== 7) {
+    if (i !== address.length - 1) {
       output += ":";
     }
   }
@@ -362,7 +386,7 @@ function serializeIPv6(address) {
   return output;
 }
 
-function parseHost(input, isNotSpecialArg = false) {
+function parseHost(input, isSpecialArg) {
   if (input[0] === "[") {
     if (input[input.length - 1] !== "]") {
       return failure;
@@ -371,13 +395,13 @@ function parseHost(input, isNotSpecialArg = false) {
     return parseIPv6(input.substring(1, input.length - 1));
   }
 
-  if (isNotSpecialArg) {
+  if (!isSpecialArg) {
     return parseOpaqueHost(input);
   }
 
-  const domain = percentDecode(Buffer.from(input)).toString();
-  const asciiDomain = domainToASCII(domain);
-  if (asciiDomain === failure) {
+  const domain = utf8PercentDecode(input);
+  const asciiDomain = tr46.toASCII(domain, false, tr46.PROCESSING_OPTIONS.NONTRANSITIONAL, false);
+  if (asciiDomain === null) {
     return failure;
   }
 
@@ -454,20 +478,6 @@ function serializeHost(host) {
   return host;
 }
 
-function domainToASCII(domain, beStrict = false) {
-  const result = tr46.toASCII(domain, {
-    checkBidi: true,
-    checkHyphens: false,
-    checkJoiners: true,
-    useSTD3ASCIIRules: beStrict,
-    verifyDNSLength: beStrict
-  });
-  if (result === null) {
-    return failure;
-  }
-  return result;
-}
-
 function trimControlChars(url) {
   return url.replace(/^[\u0000-\u001F\u0020]+|[\u0000-\u001F\u0020]+$/g, "");
 }
@@ -477,7 +487,7 @@ function trimTabAndNewline(url) {
 }
 
 function shortenPath(url) {
-  const { path } = url;
+  const path = url.path;
   if (path.length === 0) {
     return;
   }
@@ -562,7 +572,7 @@ function URLStateMachine(input, base, encodingOverride, url, stateOverride) {
 }
 
 URLStateMachine.prototype["parse scheme start"] = function parseSchemeStart(c, cStr) {
-  if (infra.isASCIIAlpha(c)) {
+  if (isASCIIAlpha(c)) {
     this.buffer += cStr.toLowerCase();
     this.state = "scheme";
   } else if (!this.stateOverride) {
@@ -577,7 +587,7 @@ URLStateMachine.prototype["parse scheme start"] = function parseSchemeStart(c, c
 };
 
 URLStateMachine.prototype["parse scheme"] = function parseScheme(c, cStr) {
-  if (infra.isASCIIAlphanumeric(c) || c === 43 || c === 45 || c === 46) {
+  if (isASCIIAlphanumeric(c) || c === 43 || c === 45 || c === 46) {
     this.buffer += cStr.toLowerCase();
   } else if (c === 58) {
     if (this.stateOverride) {
@@ -598,13 +608,10 @@ URLStateMachine.prototype["parse scheme"] = function parseScheme(c, cStr) {
       }
     }
     this.url.scheme = this.buffer;
+    this.buffer = "";
     if (this.stateOverride) {
-      if (this.url.port === defaultPort(this.url.scheme)) {
-        this.url.port = null;
-      }
       return false;
     }
-    this.buffer = "";
     if (this.url.scheme === "file") {
       if (this.input[this.pointer + 1] !== 47 || this.input[this.pointer + 2] !== 47) {
         this.parseError = true;
@@ -820,7 +827,7 @@ URLStateMachine.prototype["parse host"] = function parseHostName(c, cStr) {
       return failure;
     }
 
-    const host = parseHost(this.buffer, isNotSpecial(this.url));
+    const host = parseHost(this.buffer, isSpecial(this.url));
     if (host === failure) {
       return failure;
     }
@@ -843,7 +850,7 @@ URLStateMachine.prototype["parse host"] = function parseHostName(c, cStr) {
       return false;
     }
 
-    const host = parseHost(this.buffer, isNotSpecial(this.url));
+    const host = parseHost(this.buffer, isSpecial(this.url));
     if (host === failure) {
       return failure;
     }
@@ -867,7 +874,7 @@ URLStateMachine.prototype["parse host"] = function parseHostName(c, cStr) {
 };
 
 URLStateMachine.prototype["parse port"] = function parsePort(c, cStr) {
-  if (infra.isASCIIDigit(c)) {
+  if (isASCIIDigit(c)) {
     this.buffer += cStr;
   } else if (isNaN(c) || c === 47 || c === 63 || c === 35 ||
              (isSpecial(this.url) && c === 92) ||
@@ -896,13 +903,6 @@ URLStateMachine.prototype["parse port"] = function parsePort(c, cStr) {
 
 const fileOtherwiseCodePoints = new Set([47, 92, 63, 35]);
 
-function startsWithWindowsDriveLetter(input, pointer) {
-  const length = input.length - pointer;
-  return length >= 2 &&
-    isWindowsDriveLetterCodePoints(input[pointer], input[pointer + 1]) &&
-    (length === 2 || fileOtherwiseCodePoints.has(input[pointer + 2]));
-}
-
 URLStateMachine.prototype["parse file"] = function parseFile(c) {
   this.url.scheme = "file";
 
@@ -928,7 +928,10 @@ URLStateMachine.prototype["parse file"] = function parseFile(c) {
       this.url.fragment = "";
       this.state = "fragment";
     } else {
-      if (!startsWithWindowsDriveLetter(this.input, this.pointer)) {
+      if (this.input.length - this.pointer - 1 === 0 || // remaining consists of 0 code points
+          !isWindowsDriveLetterCodePoints(c, this.input[this.pointer + 1]) ||
+          (this.input.length - this.pointer - 1 >= 2 && // remaining has at least 2 code points
+           !fileOtherwiseCodePoints.has(this.input[this.pointer + 2]))) {
         this.url.host = this.base.host;
         this.url.path = this.base.path.slice();
         shortenPath(this.url);
@@ -954,8 +957,7 @@ URLStateMachine.prototype["parse file slash"] = function parseFileSlash(c) {
     }
     this.state = "file host";
   } else {
-    if (this.base !== null && this.base.scheme === "file" &&
-        !startsWithWindowsDriveLetter(this.input, this.pointer)) {
+    if (this.base !== null && this.base.scheme === "file") {
       if (isNormalizedWindowsDriveLetterString(this.base.path[0])) {
         this.url.path.push(this.base.path[0]);
       } else {
@@ -982,7 +984,7 @@ URLStateMachine.prototype["parse file host"] = function parseFileHost(c, cStr) {
       }
       this.state = "path start";
     } else {
-      let host = parseHost(this.buffer, isNotSpecial(this.url));
+      let host = parseHost(this.buffer, isSpecial(this.url));
       if (host === failure) {
         return failure;
       }
@@ -1075,8 +1077,8 @@ URLStateMachine.prototype["parse path"] = function parsePath(c) {
     // TODO: If c is not a URL code point and not "%", parse error.
 
     if (c === 37 &&
-      (!infra.isASCIIHex(this.input[this.pointer + 1]) ||
-        !infra.isASCIIHex(this.input[this.pointer + 2]))) {
+      (!isASCIIHex(this.input[this.pointer + 1]) ||
+        !isASCIIHex(this.input[this.pointer + 2]))) {
       this.parseError = true;
     }
 
@@ -1100,8 +1102,8 @@ URLStateMachine.prototype["parse cannot-be-a-base-URL path"] = function parseCan
     }
 
     if (c === 37 &&
-        (!infra.isASCIIHex(this.input[this.pointer + 1]) ||
-         !infra.isASCIIHex(this.input[this.pointer + 2]))) {
+        (!isASCIIHex(this.input[this.pointer + 1]) ||
+         !isASCIIHex(this.input[this.pointer + 2]))) {
       this.parseError = true;
     }
 
@@ -1119,12 +1121,10 @@ URLStateMachine.prototype["parse query"] = function parseQuery(c, cStr) {
       this.encodingOverride = "utf-8";
     }
 
-    const buffer = Buffer.from(this.buffer); // TODO: Use encoding override instead
+    const buffer = new Buffer(this.buffer); // TODO: Use encoding override instead
     for (let i = 0; i < buffer.length; ++i) {
-      if (buffer[i] < 0x21 ||
-          buffer[i] > 0x7E ||
-          buffer[i] === 0x22 || buffer[i] === 0x23 || buffer[i] === 0x3C || buffer[i] === 0x3E ||
-          (buffer[i] === 0x27 && isSpecial(this.url))) {
+      if (buffer[i] < 0x21 || buffer[i] > 0x7E || buffer[i] === 0x22 || buffer[i] === 0x23 ||
+          buffer[i] === 0x3C || buffer[i] === 0x3E) {
         this.url.query += percentEncode(buffer[i]);
       } else {
         this.url.query += String.fromCodePoint(buffer[i]);
@@ -1139,8 +1139,8 @@ URLStateMachine.prototype["parse query"] = function parseQuery(c, cStr) {
   } else {
     // TODO: If c is not a URL code point and not "%", parse error.
     if (c === 37 &&
-      (!infra.isASCIIHex(this.input[this.pointer + 1]) ||
-        !infra.isASCIIHex(this.input[this.pointer + 2]))) {
+      (!isASCIIHex(this.input[this.pointer + 1]) ||
+        !isASCIIHex(this.input[this.pointer + 2]))) {
       this.parseError = true;
     }
 
@@ -1157,12 +1157,12 @@ URLStateMachine.prototype["parse fragment"] = function parseFragment(c) {
   } else {
     // TODO: If c is not a URL code point and not "%", parse error.
     if (c === 37 &&
-      (!infra.isASCIIHex(this.input[this.pointer + 1]) ||
-        !infra.isASCIIHex(this.input[this.pointer + 2]))) {
+      (!isASCIIHex(this.input[this.pointer + 1]) ||
+        !isASCIIHex(this.input[this.pointer + 2]))) {
       this.parseError = true;
     }
 
-    this.url.fragment += percentEncodeChar(c, isFragmentPercentEncode);
+    this.url.fragment += percentEncodeChar(c, isC0ControlPercentEncode);
   }
 
   return true;
@@ -1210,8 +1210,12 @@ function serializeURL(url, excludeFragment) {
 }
 
 function serializeOrigin(tuple) {
+  if (tuple.scheme === undefined || tuple.host === undefined || tuple.port === undefined) {
+    return "null";
+  }
+
   let result = tuple.scheme + "://";
-  result += serializeHost(tuple.host);
+  result += tr46.toUnicode(tuple.host, false).domain;
 
   if (tuple.port !== null) {
     result += ":" + tuple.port;
@@ -1222,14 +1226,13 @@ function serializeOrigin(tuple) {
 
 module.exports.serializeURL = serializeURL;
 
-module.exports.serializeURLOrigin = function (url) {
-  // https://url.spec.whatwg.org/#concept-url-origin
+module.exports.serializeURLToUnicodeOrigin = function (url) {
   switch (url.scheme) {
     case "blob":
       try {
-        return module.exports.serializeURLOrigin(module.exports.parseURL(url.path[0]));
+        return module.exports.serializeURLToUnicodeOrigin(module.exports.parseURL(url.path[0]));
       } catch (e) {
-        // serializing an opaque origin returns "null"
+        // serializing an opaque identifier returns "null"
         return "null";
       }
     case "ftp":
@@ -1240,14 +1243,14 @@ module.exports.serializeURLOrigin = function (url) {
     case "wss":
       return serializeOrigin({
         scheme: url.scheme,
-        host: url.host,
+        host: serializeHost(url.host),
         port: url.port
       });
     case "file":
       // spec says "exercise to the reader", chrome says "file://"
       return "file://";
     default:
-      // serializing an opaque origin returns "null"
+      // serializing an opaque identifier returns "null"
       return "null";
   }
 };
@@ -1259,7 +1262,7 @@ module.exports.basicURLParse = function (input, options) {
 
   const usm = new URLStateMachine(input, options.baseURL, options.encodingOverride, options.url, options.stateOverride);
   if (usm.failure) {
-    return null;
+    return "failure";
   }
 
   return usm.url;

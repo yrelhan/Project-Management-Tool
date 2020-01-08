@@ -2,512 +2,276 @@
 
 const conversions = require("webidl-conversions");
 const utils = require("./utils.js");
-
-const impl = utils.implSymbol;
 const HTMLElement = require("./HTMLElement.js");
+const impl = utils.implSymbol;
 
 function HTMLImageElement() {
   throw new TypeError("Illegal constructor");
 }
+HTMLImageElement.prototype = Object.create(HTMLElement.interface.prototype);
+HTMLImageElement.prototype.constructor = HTMLImageElement;
 
-Object.setPrototypeOf(HTMLImageElement.prototype, HTMLElement.interface.prototype);
-Object.setPrototypeOf(HTMLImageElement, HTMLElement.interface);
 
-Object.defineProperty(HTMLImageElement, "prototype", {
-  value: HTMLImageElement.prototype,
-  writable: false,
-  enumerable: false,
-  configurable: false
-});
-
+HTMLImageElement.prototype.toString = function () {
+  if (this === HTMLImageElement.prototype) {
+    return "[object HTMLImageElementPrototype]";
+  }
+  return HTMLElement.interface.prototype.toString.call(this);
+};
 Object.defineProperty(HTMLImageElement.prototype, "alt", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
     const value = this.getAttribute("alt");
     return value === null ? "" : value;
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = conversions["DOMString"](V, {
-      context: "Failed to set the 'alt' property on 'HTMLImageElement': The provided value"
-    });
-
+    V = conversions["DOMString"](V);
     this.setAttribute("alt", V);
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(HTMLImageElement.prototype, "src", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return this[impl]["src"];
+    return this[impl].src;
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = conversions["USVString"](V, {
-      context: "Failed to set the 'src' property on 'HTMLImageElement': The provided value"
-    });
-
-    this[impl]["src"] = V;
+    V = conversions["DOMString"](V);
+    this[impl].src = V;
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(HTMLImageElement.prototype, "srcset", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return this[impl]["srcset"];
+    const value = this.getAttribute("srcset");
+    return value === null ? "" : value;
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = conversions["USVString"](V, {
-      context: "Failed to set the 'srcset' property on 'HTMLImageElement': The provided value"
-    });
-
-    this[impl]["srcset"] = V;
+    V = conversions["DOMString"](V);
+    this.setAttribute("srcset", V);
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(HTMLImageElement.prototype, "sizes", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
     const value = this.getAttribute("sizes");
     return value === null ? "" : value;
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = conversions["DOMString"](V, {
-      context: "Failed to set the 'sizes' property on 'HTMLImageElement': The provided value"
-    });
-
+    V = conversions["DOMString"](V);
     this.setAttribute("sizes", V);
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(HTMLImageElement.prototype, "crossOrigin", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
     const value = this.getAttribute("crossOrigin");
     return value === null ? "" : value;
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
     if (V === null || V === undefined) {
       V = null;
     } else {
-      V = conversions["DOMString"](V, {
-        context: "Failed to set the 'crossOrigin' property on 'HTMLImageElement': The provided value"
-      });
+    V = conversions["DOMString"](V);
     }
     this.setAttribute("crossOrigin", V);
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(HTMLImageElement.prototype, "useMap", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
     const value = this.getAttribute("useMap");
     return value === null ? "" : value;
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = conversions["DOMString"](V, {
-      context: "Failed to set the 'useMap' property on 'HTMLImageElement': The provided value"
-    });
-
+    V = conversions["DOMString"](V);
     this.setAttribute("useMap", V);
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(HTMLImageElement.prototype, "isMap", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
     return this.hasAttribute("isMap");
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = conversions["boolean"](V, {
-      context: "Failed to set the 'isMap' property on 'HTMLImageElement': The provided value"
-    });
-
+    V = conversions["boolean"](V);
     if (V) {
-      this.setAttribute("isMap", "");
-    } else {
-      this.removeAttribute("isMap");
-    }
+    this.setAttribute("isMap", "");
+  } else {
+    this.removeAttribute("isMap");
+  }
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(HTMLImageElement.prototype, "width", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return this[impl]["width"];
+    return this[impl].width;
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = conversions["unsigned long"](V, {
-      context: "Failed to set the 'width' property on 'HTMLImageElement': The provided value"
-    });
-
-    this[impl]["width"] = V;
+    V = conversions["unsigned long"](V);
+    this[impl].width = V;
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(HTMLImageElement.prototype, "height", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return this[impl]["height"];
+    return this[impl].height;
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = conversions["unsigned long"](V, {
-      context: "Failed to set the 'height' property on 'HTMLImageElement': The provided value"
-    });
-
-    this[impl]["height"] = V;
+    V = conversions["unsigned long"](V);
+    this[impl].height = V;
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(HTMLImageElement.prototype, "naturalWidth", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return this[impl]["naturalWidth"];
+    return this[impl].naturalWidth;
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(HTMLImageElement.prototype, "naturalHeight", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return this[impl]["naturalHeight"];
+    return this[impl].naturalHeight;
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(HTMLImageElement.prototype, "complete", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return this[impl]["complete"];
+    return this[impl].complete;
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(HTMLImageElement.prototype, "currentSrc", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return this[impl]["currentSrc"];
+    return this[impl].currentSrc;
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(HTMLImageElement.prototype, "name", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
     const value = this.getAttribute("name");
     return value === null ? "" : value;
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = conversions["DOMString"](V, {
-      context: "Failed to set the 'name' property on 'HTMLImageElement': The provided value"
-    });
-
+    V = conversions["DOMString"](V);
     this.setAttribute("name", V);
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(HTMLImageElement.prototype, "lowsrc", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return this[impl]["lowsrc"];
+    const value = this.getAttribute("lowsrc");
+    return value === null ? "" : value;
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = conversions["USVString"](V, {
-      context: "Failed to set the 'lowsrc' property on 'HTMLImageElement': The provided value"
-    });
-
-    this[impl]["lowsrc"] = V;
+    V = conversions["DOMString"](V);
+    this.setAttribute("lowsrc", V);
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(HTMLImageElement.prototype, "align", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
     const value = this.getAttribute("align");
     return value === null ? "" : value;
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = conversions["DOMString"](V, {
-      context: "Failed to set the 'align' property on 'HTMLImageElement': The provided value"
-    });
-
+    V = conversions["DOMString"](V);
     this.setAttribute("align", V);
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(HTMLImageElement.prototype, "hspace", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
     const value = parseInt(this.getAttribute("hspace"));
-    return isNaN(value) || value < 0 || value > 2147483647 ? 0 : value;
+    return isNaN(value) || value < -2147483648 || value > 2147483647 ? 0 : value
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = conversions["unsigned long"](V, {
-      context: "Failed to set the 'hspace' property on 'HTMLImageElement': The provided value"
-    });
-
-    this.setAttribute("hspace", String(V > 2147483647 ? 0 : V));
+    V = conversions["long"](V);
+    this.setAttribute("hspace", String(V));
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(HTMLImageElement.prototype, "vspace", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
     const value = parseInt(this.getAttribute("vspace"));
-    return isNaN(value) || value < 0 || value > 2147483647 ? 0 : value;
+    return isNaN(value) || value < -2147483648 || value > 2147483647 ? 0 : value
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = conversions["unsigned long"](V, {
-      context: "Failed to set the 'vspace' property on 'HTMLImageElement': The provided value"
-    });
-
-    this.setAttribute("vspace", String(V > 2147483647 ? 0 : V));
+    V = conversions["long"](V);
+    this.setAttribute("vspace", String(V));
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(HTMLImageElement.prototype, "longDesc", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    return this[impl]["longDesc"];
+    const value = this.getAttribute("longDesc");
+    return value === null ? "" : value;
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = conversions["USVString"](V, {
-      context: "Failed to set the 'longDesc' property on 'HTMLImageElement': The provided value"
-    });
-
-    this[impl]["longDesc"] = V;
+    V = conversions["DOMString"](V);
+    this.setAttribute("longDesc", V);
   },
-
   enumerable: true,
   configurable: true
 });
 
 Object.defineProperty(HTMLImageElement.prototype, "border", {
   get() {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
     const value = this.getAttribute("border");
     return value === null ? "" : value;
   },
-
   set(V) {
-    if (!this || !module.exports.is(this)) {
-      throw new TypeError("Illegal invocation");
-    }
-
-    V = conversions["DOMString"](V, {
-      context: "Failed to set the 'border' property on 'HTMLImageElement': The provided value",
-      treatNullAsEmptyString: true
-    });
-
+    V = conversions["DOMString"](V, { treatNullAsEmptyString: true });
     this.setAttribute("border", V);
   },
-
   enumerable: true,
   configurable: true
 });
 
-Object.defineProperty(HTMLImageElement.prototype, Symbol.toStringTag, {
-  value: "HTMLImageElement",
-  writable: false,
-  enumerable: false,
-  configurable: true
-});
 
 const iface = {
-  // When an interface-module that implements this interface as a mixin is loaded, it will append its own `.is()`
-  // method into this array. It allows objects that directly implements *those* interfaces to be recognized as
-  // implementing this mixin interface.
-  _mixedIntoPredicates: [],
+  mixedInto: [],
   is(obj) {
     if (obj) {
-      if (utils.hasOwn(obj, impl) && obj[impl] instanceof Impl.implementation) {
+      if (obj[impl] instanceof Impl.implementation) {
         return true;
       }
-      for (const isMixedInto of module.exports._mixedIntoPredicates) {
-        if (isMixedInto(obj)) {
+      for (let i = 0; i < module.exports.mixedInto.length; ++i) {
+        if (obj instanceof module.exports.mixedInto[i]) {
           return true;
         }
       }
@@ -521,58 +285,42 @@ const iface = {
       }
 
       const wrapper = utils.wrapperForImpl(obj);
-      for (const isMixedInto of module.exports._mixedIntoPredicates) {
-        if (isMixedInto(wrapper)) {
+      for (let i = 0; i < module.exports.mixedInto.length; ++i) {
+        if (wrapper instanceof module.exports.mixedInto[i]) {
           return true;
         }
       }
     }
     return false;
   },
-  convert(obj, { context = "The provided value" } = {}) {
-    if (module.exports.is(obj)) {
-      return utils.implForWrapper(obj);
-    }
-    throw new TypeError(`${context} is not of type 'HTMLImageElement'.`);
-  },
-
   create(constructorArgs, privateData) {
     let obj = Object.create(HTMLImageElement.prototype);
-    obj = this.setup(obj, constructorArgs, privateData);
+    this.setup(obj, constructorArgs, privateData);
     return obj;
   },
   createImpl(constructorArgs, privateData) {
     let obj = Object.create(HTMLImageElement.prototype);
-    obj = this.setup(obj, constructorArgs, privateData);
+    this.setup(obj, constructorArgs, privateData);
     return utils.implForWrapper(obj);
   },
   _internalSetup(obj) {
     HTMLElement._internalSetup(obj);
+
   },
   setup(obj, constructorArgs, privateData) {
     if (!privateData) privateData = {};
-
     privateData.wrapper = obj;
 
     this._internalSetup(obj);
-    Object.defineProperty(obj, impl, {
-      value: new Impl.implementation(constructorArgs, privateData),
-      writable: false,
-      enumerable: false,
-      configurable: true
-    });
 
+    obj[impl] = new Impl.implementation(constructorArgs, privateData);
     obj[impl][utils.wrapperSymbol] = obj;
-    if (Impl.init) {
-      Impl.init(obj[impl], privateData);
-    }
-    return obj;
   },
   interface: HTMLImageElement,
   expose: {
-    Window: { HTMLImageElement }
+    Window: { HTMLImageElement: HTMLImageElement }
   }
-}; // iface
+};
 module.exports = iface;
 
 const Impl = require("../nodes/HTMLImageElement-impl.js");

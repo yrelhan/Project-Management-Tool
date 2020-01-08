@@ -1,29 +1,14 @@
-'use strict';
-
-Object.defineProperty(exports, '__esModule', {
-  value: true
-});
-exports.default = void 0;
-
-var _CallTracker = _interopRequireDefault(require('./CallTracker'));
-
-var _SpyStrategy = _interopRequireDefault(require('./SpyStrategy'));
-
-function _interopRequireDefault(obj) {
-  return obj && obj.__esModule ? obj : {default: obj};
-}
-
-/**
- * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- */
+'use strict'; /**
+               * Copyright (c) 2014-present, Facebook, Inc. All rights reserved.
+               *
+               * This source code is licensed under the BSD-style license found in the
+               * LICENSE file in the root directory of this source tree. An additional grant
+               * of patent rights can be found in the PATENTS file in the same directory.
+               *
+               */
 // This file is a heavily modified fork of Jasmine. Original license:
-
 /*
-Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+Copyright (c) 2008-2016 Pivotal Labs
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
@@ -44,36 +29,39 @@ LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
-
 /* eslint-disable sort-keys */
+
+const CallTracker = require('./CallTracker');
+const SpyStrategy = require('./SpyStrategy');
+
 function createSpy(name, originalFn) {
-  const spyStrategy = new _SpyStrategy.default({
+  const spyStrategy = new SpyStrategy({
     name,
     fn: originalFn,
-
     getSpy() {
       return spy;
-    }
-  });
-  const callTracker = new _CallTracker.default();
+    } });
 
-  const spy = function spy(...args) {
+  const callTracker = new CallTracker();
+  const spy = function () {
     const callData = {
       object: this,
-      args: Array.prototype.slice.apply(arguments)
-    };
+      args: Array.prototype.slice.apply(arguments) };
+
+
     callTracker.track(callData);
-    const returnValue = spyStrategy.exec.apply(this, args);
+    const returnValue = spyStrategy.exec.apply(this, arguments);
     callData.returnValue = returnValue;
+
     return returnValue;
   };
 
   for (const prop in originalFn) {
     if (prop === 'and' || prop === 'calls') {
       throw new Error(
-        "Jasmine spies would overwrite the 'and' and 'calls' properties " +
-          'on the object being spied upon'
-      );
+      "Jasmine spies would overwrite the 'and' and 'calls' properties " +
+      'on the object being spied upon');
+
     }
 
     spy[prop] = originalFn[prop];
@@ -81,8 +69,8 @@ function createSpy(name, originalFn) {
 
   spy.and = spyStrategy;
   spy.calls = callTracker;
+
   return spy;
 }
 
-var _default = createSpy;
-exports.default = _default;
+module.exports = createSpy;

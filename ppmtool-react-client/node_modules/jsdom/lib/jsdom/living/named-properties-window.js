@@ -2,8 +2,8 @@
 const hasOwnProp = Object.prototype.hasOwnProperty;
 const namedPropertiesTracker = require("../named-properties-tracker");
 const NODE_TYPE = require("./node-type");
-const HTMLCollection = require("./generated/HTMLCollection");
-const { treeOrderSorter } = require("../utils");
+const createHTMLCollection = require("./html-collection").create;
+const treeOrderSorter = require("../utils").treeOrderSorter;
 const idlUtils = require("./generated/utils");
 
 function isNamedPropertyElement(element) {
@@ -17,6 +17,7 @@ function isNamedPropertyElement(element) {
 
   switch (element.nodeName) {
     case "A":
+    case "APPLET":
     case "AREA":
     case "EMBED":
     case "FORM":
@@ -29,7 +30,7 @@ function isNamedPropertyElement(element) {
   }
 }
 
-function namedPropertyResolver(window, name, values) {
+function namedPropertyResolver(HTMLCollection, window, name, values) {
   function getResult() {
     const results = [];
 
@@ -51,12 +52,9 @@ function namedPropertyResolver(window, name, values) {
   }
 
   const document = window._document;
-  const objects = HTMLCollection.create([], {
-    element: idlUtils.implForWrapper(document.documentElement),
-    query: getResult
-  });
+  const objects = createHTMLCollection(idlUtils.implForWrapper(document.documentElement), getResult);
 
-  const { length } = objects;
+  const length = objects.length;
   for (let i = 0; i < length; ++i) {
     const node = objects[i];
 
@@ -77,8 +75,8 @@ function namedPropertyResolver(window, name, values) {
   return objects;
 }
 
-exports.initializeWindow = function (window, windowProxy) {
-  namedPropertiesTracker.create(window, windowProxy, namedPropertyResolver.bind(null));
+exports.initializeWindow = function (window, HTMLCollection) {
+  namedPropertiesTracker.create(window, namedPropertyResolver.bind(null, HTMLCollection));
 };
 
 exports.elementAttributeModified = function (element, name, value, oldValue) {

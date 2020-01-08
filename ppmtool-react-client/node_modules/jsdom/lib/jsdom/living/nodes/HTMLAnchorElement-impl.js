@@ -1,5 +1,5 @@
 "use strict";
-const { mixin } = require("../../utils");
+const idlUtils = require("../generated/utils");
 const HTMLElementImpl = require("./HTMLElement-impl").implementation;
 const HTMLHyperlinkElementUtilsImpl = require("./HTMLHyperlinkElementUtils-impl").implementation;
 
@@ -18,7 +18,7 @@ class HTMLAnchorElementImpl extends HTMLElementImpl {
   }
 }
 
-mixin(HTMLAnchorElementImpl.prototype, HTMLHyperlinkElementUtilsImpl.prototype);
+idlUtils.mixin(HTMLAnchorElementImpl.prototype, HTMLHyperlinkElementUtilsImpl.prototype);
 
 module.exports = {
   implementation: HTMLAnchorElementImpl
