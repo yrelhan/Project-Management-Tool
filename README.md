@@ -1,11 +1,10 @@
 # What is the Project
-
+![Project Management Tool Homepage](https://i.ibb.co/wpKt0vZ/PPMT.png)
 This App is a ReactJS and Springboot App which allows the user to manage projects
 
 # Stack
 
 1.  ReactJS
-
 -   React Components
 -   HTTP Client using axios Library
 -   Basic react Routing
@@ -13,7 +12,6 @@ This App is a ReactJS and Springboot App which allows the user to manage project
 -   Communication between React Components
 
 2.  SpringBoot 2
-
 -   Springboot RestController
 -   Service, Repository(DAO) from Spring Framework
 -   Autowiring is used as well to inject the Dependencies
@@ -62,7 +60,7 @@ Go to [project_management_tool](https://github.com/yrelhan/Project-Management-To
 
 The Application runs on  **localhost:8080**  and the application runs in a embedded container in local
 
-## Folder Structure
+# Folder Structure
 
 **ppmtool-react-client**  : This has the Client Code implemented using React JS
 
@@ -70,7 +68,7 @@ The Application runs on  **localhost:8080**  and the application runs in a embed
 
 **pom.xml**  : This is multimodule pom. This pom in turn executes the pom within the client and the server folders
 
-## Application Design
+# Application Design
 
 ### ReactJS
 
@@ -92,45 +90,53 @@ The application has just one url /customerlist which ties to  _Customers_  Compo
 
 The package  `com.example.project_management_tool`  has the  `ProjectManagementToolApplication.java`  file which ensures that the application runs in an embedded container and forms the starting point of the code
 
+ 1. **Domains**
+
 The package  `com.example.project_management_tool.domain` defines all the Java models for the project. 
- 1. Backlog
- 2. Project
- 3. ProjectTask
- 4. User
+ - Backlog
+ - Project
+ - ProjectTask
+ - User
 
+2. **Exceptions**
 The package  `com.example.project_management_tool.exceptions`  has the custom exception logic and response logic defined for the following exceptions.
- 1. Custom Response Entity Exception
- 2. Invalid Login Response
- 3. Project Id Exception
- 5. Project Not Found Exception
- 6. UserName already exists Exception
+ - Custom Response Entity Exception
+ - Invalid Login Response
+ - Project Id Exception
+ - Project Not Found Exception
+ - UserName already exists Exception
 
+3. **Repositories**
 The package  `com.example.project_management_tool.repositories`  has the repositories for CRUD operations defined. 
- 1. Backlog Repository
- 2. Project Repository
- 3. Project Task Repository
- 4. User Repository
+ - Backlog Repository
+ - Project Repository
+ - Project Task Repository
+ - User Repository
 
+4. **Services**
 The package  `com.example.project_management_tool.services`  has the services defined and has the logic for the below tasks. The  **Service**  is where the business logic is run on the Data which comes from DAO
- 1. Custom User Details Service
- 2. Map Validation Error Service
- 3. Project Service
- 4. Project Task Service
- 5. User Service
+ - Custom User Details Service
+ - Map Validation Error Service
+ - Project Service
+ - Project Task Service
+ - User Service
 
+5. **Controllers**
 The package  `com.example.project_management_tool.web`  has the Rest Controller defined. The controller has all the end points defined and mentions which function should be executed when an end point is called. The Controller also defines which Endpoint Calls which Service. 
- 1. Backlog Controller
- 2. Project Controller
- 3. User Controller
+ - Backlog Controller
+ - Project Controller
+ - User Controller
 
+6. **Payload**
 The package  `com.example.project_management_tool.payload`  handles login request and the JWT login response.
+
 
 The  `application.properties`  file is used to define various properties such as the port in which the embedded container runs , the context path of the application etc
 
-#### Note
+##### Note
 Uncomment lines for H2 in memery database if you don't have MySQL database installed (and subsequently comment lines for MySQL db)
 
-## References
+# References
 
 **create-react-app**  : The following link has all the commands that can be used with create-react-app  [https://github.com/facebook/create-react-app](https://github.com/facebook/create-react-app)
 
